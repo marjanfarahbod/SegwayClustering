@@ -1,0 +1,4 @@
+# This is to get the data files (hard coded for bigwig) from a given list of ENCODE file IDs. For this file, I intend to get the IDs from the old segway runs, so I use the file signal_distribution.csv to fetch the IDs. It needs to be modified to read IDs from an input file
+
+
+

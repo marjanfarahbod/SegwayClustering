@@ -1,0 +1,21 @@
+# for batch run on cedar on three parameters: track-weight, STWS, prior-strength
+
+
+import pandas as pd
+import numpy as np
+import collections
+import pickle
+import math
+import os
+
+tempDataFolder = '/home/mfarahbo/projects/pac/tempData/'
+dataFolder = '/project/compbio-lab/segway_encyclopedia/tissues/'
+resultFolder = '/home/mfarahbo/projects/pac/tempResults/'
+
+# get the file list in DIR
+fileList = [f for f in os.listdir(dataFolder) if f.lower().endswith('bed')] 
+
+# get the n'th file name based on the environment variable
+fileIndex = int(os.environ['SLURM_ARRAY_TASK_ID'])  
+fileName = fileList[fileIndex]
+

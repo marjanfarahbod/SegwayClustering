@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -J encycExpCode01.py     # Name that will show up in squeue
+#SBATCH --gres=gpu:0         # Request 4 GPU "generic resource"
+#SBATCH --cpus-per-task=1
+#SBATCH --time=0-04:00       # Max job time is 3 hours
+#SBATCH --output=%N-%j.out   # Terminal output to file named (hostname)-(jobid).out
+
+# Your experiment setup logic here
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate segway_env
+hostname
+echo $CUDA_AVAILABLE_DEVICES
+
+# Note the actual command is run through srun
+srun 
