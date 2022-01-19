@@ -5,7 +5,7 @@
 #SBATCH --mem=20G
 #SBATCH --time=0-05:10
 #SBATCH --output=%j.out
-#SBATCH --array=0-1259%70
+#SBATCH --array=0-10
 
 # Your experiment setup logic here
 source ~/miniconda3/etc/profile.d/conda.sh

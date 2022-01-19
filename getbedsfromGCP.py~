@@ -1,0 +1,36 @@
+# from a file with addresses, download all the .bed files.
+#
+
+# 0. general initiation
+#####################
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+# 1. Open the file and read it into a dictionary with fields
+#####################
+# input: the address of the ID/name/GCP link table file
+# output: the dictionary where I have info for each sample
+
+# the ID table
+metaTableFileName = 'Segway_runs_imputation_challenge_samples_6_1runs.tsv'
+metaFile = dataFolder + metaTableFileName
+
+# reading lines and adding items to the dictionary
+
+with open(metaFile, 'r') as input:
+    myLine = input.readline()
+
+# 2. Filtering and download setting
+#####################
+# This depends on the project stage. At the initial stage, the filtering is the name of folders in the data folder.
+# output: the selection criteria for the dictionary items
+
+
+# 3. Download the files
+#####################
+# for each itme, make the folder and download the file
+
+
+# 4. Use the bedtools command to put together the final file
+#####################
+
+

@@ -1,0 +1,6 @@
+## Content
+Utility and pipeline code for Segway classifier labels.
+
+## Items
+
+### given the sample ID, obtain .bed files from the GCP
