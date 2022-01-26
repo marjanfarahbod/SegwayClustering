@@ -25,7 +25,6 @@ For this task we need three input files:
 - This is the exact GTF: https://www.encodeproject.org/files/gencode.v29.primary_assembly.annotation_UCSC_names/ genomic coordinates used for Segtools
 - The RNA-seq data for the sample(s)
 - The annotations with class labels (the initial sample with the transcript data name:H1 ID:ENCSR938GXK)
-
 TODO: right the code to download the transcript data for a given set of sample IDs
 
 

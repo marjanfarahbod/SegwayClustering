@@ -1,0 +1,62 @@
+# Here I do checks and QC with relevance to the transcriptomic data
+##
+#For this task we need three input files:
+#
+#- This is the exact GTF: https://www.encodeproject.org/files/gencode.v29.primary_assembly.annotation_UCSC_names/ genomic coordinates used for Segtools
+#- The RNA-seq data for the sample(s)
+#- The annotations with class labels (the initial sample with the transcript data name:H1 ID:ENCSR938GXK)
+#
+
+# 0. initials
+#####################
+
+# data folder
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+# the GTF file
+gftFile = dataFolder + 'gencode.v29.primary_assembly.annotation_UCSC_names.gtf'
+
+# sample list (by folder name)
+sample = 'H1'
+
+# 0.1 checking the fields for the GTF File
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# the GTF has multiple count of fields for different item identities in column 3, and 2,742,734 coordinate records.
+
+# some exploration for the files, columns and unique types etc.
+with open(gftFile, 'r') as coors:
+    line = coors.readline()
+    while line[0] == '#': # skipping header lines
+        print(line)
+        line = coors.readline()
+        
+    # fetching uniqe gene_types from the file:
+#    record = line.strip().split()
+#    print(record)
+#    record = coors.readline().strip().split()
+#    print(record)
+    
+    geneTypeList = []
+    for line in coors: # reading
+        index = line.index('gene_type')
+        thisType = line[index:].split('"')[1]
+        if not(thisType in geneTypeList):
+            geneTypeList.append(thisType)
+
+# getting the gene coordinates
+# I want the coordinates, gene name, gene ID, the strand, the type (both coding and non_coding)
+
+
+
+            
+# 0.2 preprocess and QC for the RNA-seq file
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+
+# 0.3 exploratory analysis for the annotation file
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+
+
