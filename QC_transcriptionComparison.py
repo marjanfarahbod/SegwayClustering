@@ -161,40 +161,179 @@ plt.show()
 # 1. Enrichment of transcript bps in the genomic regions, and in the expressed regions: go through the file once and get this
 # 2. Enrichment of promoter regions in 1000bps before the genomic regions, 1000bps before the expressed genes, and in the whole files
 # (anything to do with the enhancers?)
-# 3. Exploratory: for the 200bps start site and 200bp end site, enrichment of labels 
+# 3. Exploratory: for the 200bps start site and 200bp end site, enrichment of labels
+# I go over the .bed file and fill up the ann_labels, extracting the info about the labels.
+# I am also taking the subset of genomic regions
 
 coors_frame
 exp_frame
-annFile = dataFolder + 'testBatch/' + sample + '/ccSegway.bed'
+annFile = dataFolder + 'testBatch/' + sample + '/ccSegway.bed' 
+annFileGR = dataFolder + 'testBatch/' + sample + '/ccSegway_genomicRegions.bed'
 
 # get all the protein coding genes from the coors
 pcgenes = coors_frame[coors_frame['geneType'].str.contains('protein_coding')]
 
-# subset the file for genomic regions and 1500bps before and after
-label = namedtuple('label', ['called', 'category', 'color', 'bp_count', 'region_count'])
-ann_labels = [] # unique combination of cluster + classes
+# >>>>>>>>>>>>>>>>>>>>>>>>> DRAFT: I can either have a list of named tuples like this and then keep the index somewhere else
+# unique combination of cluster + classes. I am keeping their info here
+label = namedtuple('label', ['called', # the combination of the class + cluster
+                             'category', # class label
+                             'color', # color
+                             'bp_count', # total count of basepairs
+                             'region_count', # total count of regions
+                             'region_dist']) # length distribution
+ann_labels = [] # This is a list of labels.
+# >>> or have them as dictionaries, with key the name and value the info tuple
+info = namedtuple('info', ['called', # the combination of the class + cluster
+                             'category', # class label
+                             'color', # color
+                             'bp_count', # total count of basepairs
+                             'region_count', # total count of regions
+                             'region_dist']) # length distribution # we have it from segtools, so I am keeping it empty for now
+# name tuples won't work cause they are immuatable
+# <<<<<<<<<<<<<<<<<<<<<<<<<< DRAFT
 
-cgi = 0
-with open(annFile, 'r') as annotations: # two things I do in this following loop: fill up the label info, subset annotations for genomic regions
+#>>>>>>>>>> Annotation
 
-    if pcgenes.iloc[cgi].strand == '+': # the current genomic region with start and end, regions are sorted
-        start = pcgenes.iloc[cgi].start - 1500
-        end = pcgenes.iloc[cgi].end
-    else:
-        start = pcgenes.iloc[cgi].start
-        end = pcgenes.iloc[cgi].end + 1500
+# keeping the unique cluster_class labels and their info for annotations
 
-    for line in annotations:
+class Annotation(object):
+    def __init__(self,called,biolabel,cluster,color,bp_count,region_count,region_dist):
+        self.called = called
+        self.biolabel = biolabel
+        self.cluster = cluster
+        self.color = color
+        self.bp_count = bp_count
+        self.region_count = region_count
+        self.region_dist = region_dist # not used currently
 
-        #fill up the annotation info
-        fields = line.strip().split()
-        
-        
+    def __str__(self):
+        return 'called = %s, biolabel = %s, cluster = %s, color = %s, bp_count = %d, region_count = %d, region_dist = none' %(self.called, self.biolabel, self.cluster, self.color, self.bp_count, self.region_count)
+
+class AnnotationClass(object)
+    def __init__(self,called,biolabel,clusters,color,bp_count,region_count,region_dist):
+        self.biolabel = biolabel
+        self.clusters = clusters
+        self.color = color
+        self.bp_count = bp_count
+        self.region_count = region_count # the merged count
+        self.region_dist = region_dist # not used currently
+
+    def __str__(self):
+        return 'called = %s, biolabel = %s, cluster = %s, color = %s, bp_count = %d, region_count = %d, region_dist = none' %(self.called, self.biolabel, self.cluster, self.color, self.bp_count, self.region_count)
+
+
+# <<<<<<<<<<
+
+labels = {} # list of annotation labels
+classes = {} # list of annotationClass
+extension = 1500 # count of basepairs monitored before and after the gene coordinates
+
+cgi = 0 # walks on the genomic region
+ann_start = 0
+ann_end = 0
+ann_line_count = 0
+
+with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
     
+    '''
+    Walking on the genomic coordinates and the annotation file doing:
+    1. Filling up the annotation info
+    2. Recording the annotations for the extended genomic regions
+
+    '''
+
+    #while cgi < len(pcgenes): # modify the condition for the test runs
+    while cgi < 5: # modify the condition for the test runs
+        
+        gene_chr = pcgenes.iloc[cgi].chrom
+
+        gene_start = int(pcgenes.iloc[cgi].start) - extension
+        gene_end = int(pcgenes.iloc[cgi].end) + extension
+
+
+        # for line in annotations:
+        while (ann_start < gene_end) or not(gene_chr == ann_chr):
+            ann_line_count += 1
+            
+            line = annotations.readline()
+            fields = line.strip().split()
+            
+            ann_chr = fields[0]
+            ann_start = int(fields[1])
+            ann_end = int(fields[2])
+            
+            # fill up the annotation info: if label is not in the file,
+            if fields[3] in labels.keys():
+                
+                # print('already added')
+                labels[fields[3]].bp_count += int(fields[2]) - int(fields[1])
+                labels[fields[3]].region_count += 1
+                # (TODO - maybe?) add to distribution
+                
+            else:
+                
+                # print('not added')
+                called = fields[3]
+                biolabel = fields[3].split('_')[1]
+                cluster = fields[3].split('_')[0]
+                color = fields[8]
+                bp_count = int(fields[2]) - int(fields[1])
+                region_count = 1
+                region_dist = 1
+                labels[fields[3]] = Annotation(called, biolabel, cluster, color, bp_count, region_count, region_dist)
+
+                '''
+                # the printing block 
+                allAnns = list(labels.keys())
+                for ann in allAnns:
+                print(str(labels[ann]))
+                '''
+
+            if previous_class = fields[3].split('_')[1]:
+                classes[previous_class].bp_count =  int(fields[2]) - int(fields[1])
+            else:
+                if fields[3].split('_')[1] in classes.keys():
+                    classes[previous_class].bp_count =  int(fields[2]) - int(fields[1])
+                    classes[previous_class].region_count += 1
+                else:
+                    biolabel = fields[3].split('_')[1]
+                    clusters = fields[3].split('_')[0]
+                    color = fields[8]
+                    bp_count = int(fields[2]) - int(fields[1])
+                    region_count = 1
+                    region_dist = 1
+                    classes[biolabel] = Annotation(biolabel, clusters, color, bp_count, region_count, region_dist)
+
+            
+            previous_class = fields[3].split('_')[1]
+            # write the genomic region annotation
+            if ann_chr == gene_chr:
+                if (ann_start < gene_end and ann_start > gene_start) or (ann_end < gene_end and ann_end > gene_start) or (ann_start < gene_start and ann_end > gene_end):
+                    grFile.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n'
+                                 %(fields[0],fields[1],fields[2],fields[3],fields[4],fields[5],fields[6],fields[7],fields[8]))
+
+        # just checking
+        print('cgi = %d' %(cgi))
+        print(pcgenes.iloc[cgi])
+        print(fields)
+
+        cgi += 1 # next gene
+
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # 1.1 get the labels 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
+#########################################
+# CODE DRAFT
+#########################################
+
+# extending the genomic region by <extension> for the start, based on the direction
+if pcgenes.iloc[cgi].strand == '+':  
+    start = int(pcgenes.iloc[cgi].start) - extension
+    end = int(pcgenes.iloc[cgi].end) 
+else:
+    start = int(pcgenes.iloc[cgi].start)
+    end = int(pcgenes.iloc[cgi].end + extension)
 
