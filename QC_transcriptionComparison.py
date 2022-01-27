@@ -192,12 +192,12 @@ info = namedtuple('info', ['called', # the combination of the class + cluster
 # name tuples won't work cause they are immuatable
 # <<<<<<<<<<<<<<<<<<<<<<<<<< DRAFT
 
-#>>>>>>>>>> Annotation
+#>>>>>>>>>> Annotation and classes (biolabels)
 
 # keeping the unique cluster_class labels and their info for annotations
 
 class Annotation(object):
-    def __init__(self,called,biolabel,cluster,color,bp_count,region_count,region_dist):
+    def __init__(self,called, biolabel, cluster, color, bp_count, region_count, region_dist):
         self.called = called
         self.biolabel = biolabel
         self.cluster = cluster
@@ -209,8 +209,8 @@ class Annotation(object):
     def __str__(self):
         return 'called = %s, biolabel = %s, cluster = %s, color = %s, bp_count = %d, region_count = %d, region_dist = none' %(self.called, self.biolabel, self.cluster, self.color, self.bp_count, self.region_count)
 
-class AnnotationClass(object)
-    def __init__(self,called,biolabel,clusters,color,bp_count,region_count,region_dist):
+class AnnotationClass(object):
+    def __init__(self, biolabel, clusters, color, bp_count, region_count, region_dist):
         self.biolabel = biolabel
         self.clusters = clusters
         self.color = color
@@ -232,6 +232,7 @@ cgi = 0 # walks on the genomic region
 ann_start = 0
 ann_end = 0
 ann_line_count = 0
+previous_class = ''
 
 with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
     
@@ -243,7 +244,7 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
     '''
 
     #while cgi < len(pcgenes): # modify the condition for the test runs
-    while cgi < 5: # modify the condition for the test runs
+    while cgi < len(pcgenes): # modify the condition for the test runs
         
         gene_chr = pcgenes.iloc[cgi].chrom
 
@@ -289,20 +290,21 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
                 print(str(labels[ann]))
                 '''
 
-            if previous_class = fields[3].split('_')[1]:
+            if previous_class == fields[3].split('_')[1]:
                 classes[previous_class].bp_count =  int(fields[2]) - int(fields[1])
             else:
-                if fields[3].split('_')[1] in classes.keys():
-                    classes[previous_class].bp_count =  int(fields[2]) - int(fields[1])
-                    classes[previous_class].region_count += 1
+                current_class = fields[3].split('_')[1]
+                if current_class in classes.keys():
+                    classes[current_class].bp_count =  int(fields[2]) - int(fields[1])
+                    classes[current_class].region_count += 1
                 else:
-                    biolabel = fields[3].split('_')[1]
-                    clusters = fields[3].split('_')[0]
+                    clusters = [] # not filling it now, it can be filled later using annotations 
+                    biolabel = current_class
                     color = fields[8]
                     bp_count = int(fields[2]) - int(fields[1])
                     region_count = 1
                     region_dist = 1
-                    classes[biolabel] = Annotation(biolabel, clusters, color, bp_count, region_count, region_dist)
+                    classes[biolabel] = AnnotationClass(biolabel, clusters, color, bp_count, region_count, region_dist)
 
             
             previous_class = fields[3].split('_')[1]
@@ -312,13 +314,14 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
                     grFile.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n'
                                  %(fields[0],fields[1],fields[2],fields[3],fields[4],fields[5],fields[6],fields[7],fields[8]))
 
+        '''
         # just checking
         print('cgi = %d' %(cgi))
         print(pcgenes.iloc[cgi])
         print(fields)
-
+        '''
+        
         cgi += 1 # next gene
-
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # 1.1 get the labels 
