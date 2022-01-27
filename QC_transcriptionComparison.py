@@ -155,15 +155,16 @@ plt.show()
 #TODO: go through the file and count bps of different regions
 
 ########################################
-# 1. compare to the transcript data
+# 1. Parsing the annotation file, considering genomic coordinates
 ########################################
-# From the .bed files:
-# 1. Enrichment of transcript bps in the genomic regions, and in the expressed regions: go through the file once and get this
-# 2. Enrichment of promoter regions in 1000bps before the genomic regions, 1000bps before the expressed genes, and in the whole files
-# (anything to do with the enhancers?)
-# 3. Exploratory: for the 200bps start site and 200bp end site, enrichment of labels
-# I go over the .bed file and fill up the ann_labels, extracting the info about the labels.
-# I am also taking the subset of genomic regions
+# 1. Make the smaller .bed file for genomic regions
+# 2. Get the class/cluster/annotation info from the .bed file
+
+'''
+Inputs for the section: 
+1. pcgenes / genomic coordinates from the coordinate file
+2. segway.bed file
+'''
 
 coors_frame
 exp_frame
@@ -192,12 +193,14 @@ info = namedtuple('info', ['called', # the combination of the class + cluster
 # name tuples won't work cause they are immuatable
 # <<<<<<<<<<<<<<<<<<<<<<<<<< DRAFT
 
-#>>>>>>>>>> Annotation and classes (biolabels)
+
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Annotation and classes (biolabels)
 
 # keeping the unique cluster_class labels and their info for annotations
 
 class Annotation(object):
-    def __init__(self,called, biolabel, cluster, color, bp_count, region_count, region_dist):
+    def __init__(self, called, biolabel, cluster, color, bp_count, region_count, region_dist):
         self.called = called
         self.biolabel = biolabel
         self.cluster = cluster
@@ -219,10 +222,10 @@ class AnnotationClass(object):
         self.region_dist = region_dist # not used currently
 
     def __str__(self):
-        return 'called = %s, biolabel = %s, cluster = %s, color = %s, bp_count = %d, region_count = %d, region_dist = none' %(self.called, self.biolabel, self.cluster, self.color, self.bp_count, self.region_count)
+        return 'biolabel = %s, clusters = %s, color = %s, bp_count = %d, region_count = %d, region_dist = none' %(self.biolabel, self.clusters, self.color, self.bp_count, self.region_count)
 
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Annotation and classes (biolabels)
 
-# <<<<<<<<<<
 
 labels = {} # list of annotation labels
 classes = {} # list of annotationClass
@@ -291,11 +294,11 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
                 '''
 
             if previous_class == fields[3].split('_')[1]:
-                classes[previous_class].bp_count =  int(fields[2]) - int(fields[1])
+                classes[previous_class].bp_count +=  int(fields[2]) - int(fields[1])
             else:
                 current_class = fields[3].split('_')[1]
                 if current_class in classes.keys():
-                    classes[current_class].bp_count =  int(fields[2]) - int(fields[1])
+                    classes[current_class].bp_count +=  int(fields[2]) - int(fields[1])
                     classes[current_class].region_count += 1
                 else:
                     clusters = [] # not filling it now, it can be filled later using annotations 
@@ -314,18 +317,82 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
                     grFile.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n'
                                  %(fields[0],fields[1],fields[2],fields[3],fields[4],fields[5],fields[6],fields[7],fields[8]))
 
+        ###
+        #TODO: we are probably missing something at the end of the last gene
+        ###
         '''
         # just checking
         print('cgi = %d' %(cgi))
         print(pcgenes.iloc[cgi])
         print(fields)
         '''
-        
         cgi += 1 # next gene
 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# 1.1 get the labels 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# PLOTS for class and annotation labels
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+# plot: mean length for both annotations and classes
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+classList = list(classes.keys())
+classMeanLength = np.zeros(len(classList))
+for i, key in enumerate(classList):
+    classMeanLength[i] = int(classes[key].bp_count)/int(classes[key].region_count)
+
+annotationList = list(labels.keys())
+annotMeanLength = np.zeros(len(annotationList))
+for i, key in enumerate(annotationList):
+    annotMeanLength[i] = int(labels[key].bp_count)/int(labels[key].region_count)
+    
+# plot: bp/all ratio for both annotations and classes
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+totalbp = 0
+classList = list(classes.keys())
+classbp = np.zeros(len(classList)) 
+for i, key in enumerate(classList):
+    classbp[i] = int(classes[key].bp_count)
+    totalbp += classes[key].bp_count 
+
+annotationList = list(labels.keys())
+annotbp = np.zeros(len(annotationList))
+for i, key in enumerate(annotationList):
+    annotbp[i] = int(labels[key].bp_count)
+
+
+
+# plot: mean value of the histone tracks
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# TODO
+
+'''from the histone track info file'''
+
+# plot: length distribution 
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# TODO 
+
+'''from the length distribution file'''
+
+
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+# PLOTS for class and annotation labels
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+########################################
+# 2. compare to the transcript data
+########################################
+# From the .bed files:
+# 1. Enrichment of transcript bps in the genomic regions, and in the expressed regions: go through the file once and get this
+# 2. Enrichment of promoter regions in 1000bps before the genomic regions, 1000bps before the expressed genes, and in the whole files
+# (anything to do with the enhancers?)
+# 3. Exploratory: for the 200bps start site and 200bp end site, enrichment of labels
+
+
+
+
+
+
 
 
 #########################################
