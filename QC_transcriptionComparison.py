@@ -18,6 +18,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
 
 # data folder
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
@@ -47,11 +48,30 @@ with open(gftFile, 'r') as coors:
 #    print(record)
     
     geneTypeList = []
+    geneTypeLineCount = [] # line count per 'gene_type'
+    geneTypeGeneCount = [] # count of genes per 'gene_type' (we are not counting all lines)
     for line in coors: # reading
         index = line.index('gene_type')
         thisType = line[index:].split('"')[1]
         if not(thisType in geneTypeList):
             geneTypeList.append(thisType)
+            geneTypeLineCount.append(0)
+            geneTypeIndex = geneTypeList.index(thisType)
+            geneTypeGeneCount.append(0)
+        else:
+            geneTypeIndex = geneTypeList.index(thisType)
+            geneTypeLineCount[geneTypeIndex] += 1
+
+        features = line.strip().split()
+        if features[2] == 'gene':
+            geneTypeGeneCount[geneTypeIndex] += 1
+
+for i in range(len(geneTypeList)):
+    print('%s, count:%d' %(geneTypeList[i], geneTypeCount[i]))
+
+for i in range(len(geneTypeList)):
+    print('%s, count:%d' %(geneTypeList[i], geneTypeGeneCount[i]))
+
 
 #>>>>> getting the gene coordinates: based on the third column, I have 58,780 genes in the file
 # I want the coordinates, gene name, gene ID, the strand, the type (both coding and non_coding)
@@ -63,7 +83,7 @@ strand = []
 name = []
 geneID = []
 geneType = []
-
+ 
 with open(gftFile, 'r') as coors:
     line = coors.readline()
     while line[0] == '#': # skipping header lines
@@ -194,10 +214,10 @@ info = namedtuple('info', ['called', # the combination of the class + cluster
 # <<<<<<<<<<<<<<<<<<<<<<<<<< DRAFT
 
 
-
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Annotation and classes (biolabels)
 
 # keeping the unique cluster_class labels and their info for annotations
+# I defined my own classes since namedtuples are immutable - I preferred namedtuples to dict since they are defined with fields - 
 
 class Annotation(object):
     def __init__(self, called, biolabel, cluster, color, bp_count, region_count, region_dist):
@@ -344,6 +364,8 @@ annotationList = list(labels.keys())
 annotMeanLength = np.zeros(len(annotationList))
 for i, key in enumerate(annotationList):
     annotMeanLength[i] = int(labels[key].bp_count)/int(labels[key].region_count)
+
+# TODO: the plot
     
 # plot: bp/all ratio for both annotations and classes
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -359,8 +381,8 @@ annotationList = list(labels.keys())
 annotbp = np.zeros(len(annotationList))
 for i, key in enumerate(annotationList):
     annotbp[i] = int(labels[key].bp_count)
-
-
+    
+# TODO: the plot
 
 # plot: mean value of the histone tracks
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -373,7 +395,6 @@ for i, key in enumerate(annotationList):
 # TODO 
 
 '''from the length distribution file'''
-
 
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # PLOTS for class and annotation labels
@@ -388,16 +409,216 @@ for i, key in enumerate(annotationList):
 # (anything to do with the enhancers?)
 # 3. Exploratory: for the 200bps start site and 200bp end site, enrichment of labels
 
+'''
+TODO: 
+1. Make the gene structure from the GTF file, where I have coordinates for exons and for genes. A gene must have list of exons. 
+Exons have begin, end and ID (first, second, etc) - also the intron that comes in- between.
+2. Get the genomic annotations for 3k around the genes. 
+3. Do the transcript and expression and all the else
 
+Data/datastructure: plan for gene structure: object gene, object exon, I will also have the gene coordinate dataframe (sorted) and the annotation file for genomic regions (sorted)
 
+NOTE: while filling the info, the first exon is the one with smallest start, exons should be sorted based on their start 
 
+I will then go through the coordinates dataframe and fetch genes and exons info - from here I will know about the count of exons for each gene, first or last exon etc - exons are distinguished with their IDs
 
+getting the enrichment: I will go through the gene dataframe and genomic annotation file using the loop in 1. But here, at each gene, I will also walk through the exons and getting label enrichment for them. 
 
+label enrichment: we count the basepairs in that region with a specific label. So far, we do it with the "LABELS" and not "CLASSES"/BIOLABELS. This is because I highly suspect that some classes are something else. This is also a good investigation step
+
+We do this for all the genes. 
+
+Then we do this for expressed genes, or a specific group of genes.
+
+'''
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> I examined gene type records in GTF
+gene_type = 'protein_coding'
+gene_type = 'snoRNA'
+file = open(gftFile, 'r')
+while gene_type not in line:
+    line = file.readline()
+
+while gene_type in line:
+    line = file.readline()
+
+print(line)
+line = file.readline()    
+
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Genes and Exons
+
+class Gene(object):
+    def __init__(self, name, ENS_ID, gtype, chrom, start, end, strand):
+        self.name = name 
+        self.ENS_ID = ENS_ID # ensemble ID
+        self.gtype = gtype
+        self.chrom = chrom
+        self.start = start # always smaller than end, direction is defined by strand
+        self.end = end
+        self.length = end - start
+        self.strand = strand
+        self.exon_list = [] # list of exons
+        self.exon_count = len(self.exon_list)
+        self.intron_list = [] # list of introns
+
+    def __str__(self):
+        return 'name = %s, ENS_ID = %s, gtype = %s, chrom = %s, start = %d, end = %d, strand = %s, exon_count = %d' %(self.name, self.ENS_ID, self.gtype, self.chrom, self.start, self.end, self.strand, self.exon_count)
+
+    def printExonList(self):
+        for i in range(len(self.exon_list)):
+            print(self.exon_list[i])
+
+    def getIntronList(self):
+        if len(self.exon_list) > 1:
+            intronList = []
+            for i in range(len(self.exon_list)-1):
+                in_start = self.exon_list[i].end + 1
+                in_end = self.exon_list[i+1].start - 1
+                intron = Intron(in_start, in_end)
+                intronList.append(intron)
+
+            self.intron_list = intronList
+        else:
+            print('only one exon recorded for the gene')
+
+    def printIntronList(self):
+        for i in range(len(self.intron_list)):
+            print(self.intron_list[i])
+
+    
+
+class Exon(object):
+    def __init__(self, ENS_ID, start, end):
+        self.ENS_ID = ENS_ID
+        self.start = start
+        self.end = end
+
+    def __str__(self):
+        return 'ENS_ID = %s, start = %d, end = %d' %(self.ENS_ID, self.start, self.end)
+
+class Intron(object): # introns don't have ID, but just identified by exon_end+1 and exon_start-1
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+    def __str__(self):
+        return 'start = %d, end = %d' %(self.start, self.end)
+
+# NOTE: once all the genes are recorded, go through the exons and save introns
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Genes and Exons
+
+# reading the GTF file into gene struct - recording exons and introns
+###############################
+
+acceptedGeneTypes = [geneTypeList[0],
+                     geneTypeList[2],
+                     geneTypeList[4],
+                     geneTypeList[8],
+                     geneTypeList[9],
+                     geneTypeList[14]]
+
+geneList = {} # donno why, want to call each gene by its ID
+i = 0
+with open(gftFile, 'r') as coors:
+    line = coors.readline()
+    for l in range(4): # skipping header lines
+        line = coors.readline()
+        print(line)
+
+    for line in coors:
+#    i = 0 # for test
+#    while i < 20: # for test
+
+        infos = line.strip().split()
+#        print(infos) #for test
+
+        if infos[2] == 'gene':
+            index = line.index('gene_type')
+            thisType = line[index:].split('"')[1]
+            
+            if thisType in acceptedGeneTypes:
+                record = True
+                i +=1 # for test
+                
+                index = line.index('gene_name')
+                name = line[index:].split('"')[1]
+                chrom = infos[0]
+                start = int(infos[3])
+                end = int(infos[4])
+                strand = infos[6]
+                gtype = thisType
+                
+                ENS_ID = infos[9]
+                for x in enumerate(['"', ';']): ENS_ID = ENS_ID.replace(x[1], '')
+
+                geneList[ENS_ID] = Gene(name, ENS_ID, gtype, chrom, start, end, strand)
+                #self.exon_list = [] # list of exons
+                #self.exon_count = len(self.exon_list)
+                #self.intron_list = [] # list of introns
+                            
+            else: 
+                record = False
+
+        elif record and infos[2] == 'exon': # we are reading other elements of the gene, looking for exon, if this is a gene that we are recording
+#            if record: # 
+#                if infos[2] == 'exon': # if this is an exon,
+            if thisType == 'transcribed_unprocessed_pseudogene': # for this type of gene, we are only recording the processed_transcript
+                if 'processed_transcript' in line:
+                    index = line.index('exon_id')
+                    ex_ID = line[index:].split('"')[1]
+                    
+                    if not ex_ID in geneList[ENS_ID].exon_list:
+                        ex_end = int(infos[4])
+                        ex_start = int(infos[3])
+                        exon = Exon(ex_ID, ex_start, ex_end)
+                        geneList[ENS_ID].exon_list.append(exon)
+
+            else:
+                index = line.index('exon_id')
+                ex_ID = line[index:].split('"')[1]
+                
+                if not ex_ID in geneList[ENS_ID].exon_list:
+                    ex_end = int(infos[4])
+                    ex_start = int(infos[3])
+                    exon = Exon(ex_ID, ex_start, ex_end)
+                    geneList[ENS_ID].exon_list.append(exon)
+                        
+#        line = coors.readline()
+
+fileName = dataFolder + '/geneLists.pkl'
+with open(fileName, 'wb') as f:
+    pickle.dump(geneList, f)
+
+# just testing
+for i in range(20):
+    book = geneList[list(geneList.keys())[i]]
+    print(book)
+    book.printExonList()
+    book.getIntronList()
+    book.printIntronList()
 
 
 #########################################
 # CODE DRAFT
 #########################################
+
+with open(gftFile, 'r') as coors:
+    line = coors.readline()
+
+gene_type = 'protein_coding'
+gene_type = 'snoRNA'
+file = open(gftFile, 'r')
+while gene_type not in line:
+    line = file.readline()
+
+while gene_type in line:
+    line = file.readline()
+
+print(line)
+line = file.readline()    
+
 
 # extending the genomic region by <extension> for the start, based on the direction
 if pcgenes.iloc[cgi].strand == '+':  
