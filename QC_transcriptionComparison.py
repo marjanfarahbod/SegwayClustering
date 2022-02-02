@@ -9,7 +9,9 @@
 ## 0.1 checking the fields for the GTF File/reading the file
 ## 0.2 preprocess and QC for the RNA-seq file
 ## 0.3 exploratory analysis for the annotation file
-## 1. compare to the transcript data
+## 1. Parsing the annotation file, considering genomic coordinates
+## 2. Getting the gene structures from GTF
+## 3. Comparing the annotation labels to the genomic regions and transcriptomic data
 
 ###############################
 # 0. initials
@@ -260,9 +262,9 @@ previous_class = ''
 with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
     
     '''
-    Walking on the genomic coordinates and the annotation file doing:
-    1. Filling up the annotation info
-    2. Recording the annotations for the extended genomic regions
+    Walking on the genomic coordinates in the protein_coding dataframe <pcgenes> and the annotation file doing:
+    1. Filling up the annotation info for basepair counts
+    2. Recording the annotations for the extended genomic regions in another file (for later investigation in genomic regions)
 
     '''
 
@@ -348,6 +350,7 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
         '''
         cgi += 1 # next gene
 
+
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # PLOTS for class and annotation labels
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -401,7 +404,7 @@ for i, key in enumerate(annotationList):
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 ########################################
-# 2. compare to the transcript data
+# 2. Getting the gene structures from GTF
 ########################################
 # From the .bed files:
 # 1. Enrichment of transcript bps in the genomic regions, and in the expressed regions: go through the file once and get this
@@ -410,8 +413,8 @@ for i, key in enumerate(annotationList):
 # 3. Exploratory: for the 200bps start site and 200bp end site, enrichment of labels
 
 '''
-TODO: 
-1. Make the gene structure from the GTF file, where I have coordinates for exons and for genes. A gene must have list of exons. 
+TODO
+1. Get the gene structure from the GTF file, where I have coordinates for exons and for genes. A gene must have list of exons. 
 Exons have begin, end and ID (first, second, etc) - also the intron that comes in- between.
 2. Get the genomic annotations for 3k around the genes. 
 3. Do the transcript and expression and all the else
@@ -436,6 +439,14 @@ Then we do this for expressed genes, or a specific group of genes.
 gene_type = 'protein_coding'
 gene_type = 'snoRNA'
 file = open(gftFile, 'r')
+
+line = file.readline()
+while not 'AP006222.1' in line:
+    line = file.readline()
+
+print(line)
+line = file.readline()
+
 while gene_type not in line:
     line = file.readline()
 
@@ -483,10 +494,40 @@ class Gene(object):
         else:
             print('only one exon recorded for the gene')
 
+            
     def printIntronList(self):
         for i in range(len(self.intron_list)):
             print(self.intron_list[i])
 
+            
+    def sortExonList(self):
+        
+        '''sorts exon list'''
+        
+        exon_sorted_list = []
+        exon_start_list = []
+        for i in range(len(self.exon_list)):
+            exon_start_list.append(self.exon_list[i].start)
+
+        exon_sorted_list = []
+        inds = sorted(range(len(exon_start_list)), key = lambda k: exon_start_list[k])
+        for i in range(len(inds)):
+            exon_sorted_list.append(self.exon_list[inds[i]])
+
+        self.exon_list = exon_sorted_list
+
+            
+    def exonOverlaps(self):
+
+        '''reports overlapping exons'''
+        #TODO: define and check the exon sort flag
+        # to report if there are overlapping exons
+        exonOverlapIncidents = 0
+        for i in range(len(self.exon_list)-1):
+            if self.exon_list[i].end > self.exon_list[i+1].start:
+                exonOverlapIncidents +=1
+
+        return(exonOverlapIncidents)
     
 
 class Exon(object):
@@ -520,6 +561,7 @@ acceptedGeneTypes = [geneTypeList[0],
                      geneTypeList[14]]
 
 geneList = {} # donno why, want to call each gene by its ID
+geneIDList = [] # not sure if the dict would keep the ID and I needed it
 i = 0
 with open(gftFile, 'r') as coors:
     line = coors.readline()
@@ -528,8 +570,9 @@ with open(gftFile, 'r') as coors:
         print(line)
 
     for line in coors:
-#    i = 0 # for test
-#    while i < 20: # for test
+#   i = 0 # ^^^^^^^^^^ for test
+#    line = coors.readline() # ^^^^^^^^^^ for test
+#    while i < 20: # ^^^^^^^^^^ for test
 
         infos = line.strip().split()
 #        print(infos) #for test
@@ -540,7 +583,7 @@ with open(gftFile, 'r') as coors:
             
             if thisType in acceptedGeneTypes:
                 record = True
-                i +=1 # for test
+#                i +=1 # ^^^^^^^^^^ for test
                 
                 index = line.index('gene_name')
                 name = line[index:].split('"')[1]
@@ -554,6 +597,7 @@ with open(gftFile, 'r') as coors:
                 for x in enumerate(['"', ';']): ENS_ID = ENS_ID.replace(x[1], '')
 
                 geneList[ENS_ID] = Gene(name, ENS_ID, gtype, chrom, start, end, strand)
+                geneIDList.append(ENS_ID)
                 #self.exon_list = [] # list of exons
                 #self.exon_count = len(self.exon_list)
                 #self.intron_list = [] # list of introns
@@ -585,19 +629,138 @@ with open(gftFile, 'r') as coors:
                     exon = Exon(ex_ID, ex_start, ex_end)
                     geneList[ENS_ID].exon_list.append(exon)
                         
-#        line = coors.readline()
+#        line = coors.readline() # ^^^^^^^^^^ for test
 
 fileName = dataFolder + '/geneLists.pkl'
 with open(fileName, 'wb') as f:
     pickle.dump(geneList, f)
 
 # just testing
-for i in range(20):
+book = geneList[list(geneList.keys())[1234]]
+print(book)
+book2 = geneIDList[1234] 
+print(book)
+
+for i in range(10):
+
     book = geneList[list(geneList.keys())[i]]
     print(book)
+    book.sortExonList()
     book.printExonList()
     book.getIntronList()
     book.printIntronList()
+    print(book.exonOverlaps())
+
+##TODO: exon overlap for genes, check, modify or others - I suspect that some none coding genes would have too many overlaps. But that's ok since they are a not many. My guess is that overlap happens much less in non coding genes
+
+#############################################################    
+# 3. Comparing the annotation labels to the genomic regions and transcriptomic data
+#############################################################    
+
+
+labels = {} # list of annotation labels
+classes = {} # list of annotationClass
+extension = 1500 # count of basepairs monitored before and after the gene coordinates
+
+extension = 3000 # count of basepairs monitored before and after the gene coordinates
+
+cgi = 0 # walks on the genes
+ann_start = 0
+ann_end = 0
+ann_line_count = 0 # this is just to check the progress through the annotation file
+previous_class = ''
+
+with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
+    
+    '''
+    Walking on the genomic coordinates in the protein_coding dataframe <pcgenes> and the annotation file doing:
+    1. Filling up the annotation info for basepair counts
+    2. Recording the annotations for the extended genomic regions in another file (for later investigation in genomic regions)
+
+    '''
+
+    #while cgi < len(pcgenes): # modify the condition for the test runs
+    while cgi < len(pcgenes): # modify the condition for the test runs
+        
+        gene_chr = pcgenes.iloc[cgi].chrom
+
+        gene_start = int(pcgenes.iloc[cgi].start) - extension
+        gene_end = int(pcgenes.iloc[cgi].end) + extension
+
+
+        # for line in annotations:
+        while (ann_start < gene_end) or not(gene_chr == ann_chr):
+            ann_line_count += 1
+            
+            line = annotations.readline()
+            fields = line.strip().split()
+            
+            ann_chr = fields[0]
+            ann_start = int(fields[1])
+            ann_end = int(fields[2])
+            
+            # fill up the annotation info: if label is not in the file,
+            if fields[3] in labels.keys():
+                
+                # print('already added')
+                labels[fields[3]].bp_count += int(fields[2]) - int(fields[1])
+                labels[fields[3]].region_count += 1
+                # (TODO - maybe?) add to distribution
+                
+            else:
+                
+                # print('not added')
+                called = fields[3]
+                biolabel = fields[3].split('_')[1]
+                cluster = fields[3].split('_')[0]
+                color = fields[8]
+                bp_count = int(fields[2]) - int(fields[1])
+                region_count = 1
+                region_dist = 1
+                labels[fields[3]] = Annotation(called, biolabel, cluster, color, bp_count, region_count, region_dist)
+
+                '''
+                # the printing block 
+                allAnns = list(labels.keys())
+                for ann in allAnns:
+                print(str(labels[ann]))
+                '''
+
+            if previous_class == fields[3].split('_')[1]:
+                classes[previous_class].bp_count +=  int(fields[2]) - int(fields[1])
+            else:
+                current_class = fields[3].split('_')[1]
+                if current_class in classes.keys():
+                    classes[current_class].bp_count +=  int(fields[2]) - int(fields[1])
+                    classes[current_class].region_count += 1
+                else:
+                    clusters = [] # not filling it now, it can be filled later using annotations 
+                    biolabel = current_class
+                    color = fields[8]
+                    bp_count = int(fields[2]) - int(fields[1])
+                    region_count = 1
+                    region_dist = 1
+                    classes[biolabel] = AnnotationClass(biolabel, clusters, color, bp_count, region_count, region_dist)
+
+            
+            previous_class = fields[3].split('_')[1]
+            # write the genomic region annotation
+            if ann_chr == gene_chr:
+                if (ann_start < gene_end and ann_start > gene_start) or (ann_end < gene_end and ann_end > gene_start) or (ann_start < gene_start and ann_end > gene_end):
+                    grFile.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n'
+                                 %(fields[0],fields[1],fields[2],fields[3],fields[4],fields[5],fields[6],fields[7],fields[8]))
+
+        ###
+        #TODO: we are probably missing something at the end of the last gene
+        ###
+        '''
+        # just checking
+        print('cgi = %d' %(cgi))
+        print(pcgenes.iloc[cgi])
+        print(fields)
+        '''
+        cgi += 1 # next gene
+
 
 
 #########################################
