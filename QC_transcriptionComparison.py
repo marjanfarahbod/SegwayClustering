@@ -887,7 +887,8 @@ while cgi < 1: # >>>>>>>>>> TEST
    
    geneID = geneIDList[cgi]
    gene_chr = geneList[geneIDList[cgi]].chrom
-   
+
+   gene_strand = geneList[geneID].strand
    gene_start = geneList[geneID].start
    gene_end = geneList[geneID].end
    gene_length = gene_end - gene_start
@@ -898,11 +899,14 @@ while cgi < 1: # >>>>>>>>>> TEST
    extension_start = gene_start - extension
    extension_end = gene_end + extension
 
+   ''' 
+   if this gene starts somewhere in the preivous genomic region, 
+   I will go back in the annotation file to the beginning of annotation for the previous gene
+
+   '''
    if (gene_chr == previous_gene_chr) and (previous_extension_end > extension_start):
-      ''' if this gene starts somewhere in the preivous genomic region'''
       annLineInd = genomicRegionStartAnnLineInd
    
-   gene_strand = geneList[geneID].strand
 
 
    ''' picking the label/class matrix based on the gene expression level'''
@@ -968,59 +972,114 @@ while cgi < 1: # >>>>>>>>>> TEST
             #labelInd = #TODO: get it
             
             # expMatInd
-            while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
-               if (adjusted_ann_length >= 100*(1- previous_fill)):
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
-                  adjusted_ann_length -= 100*(1- previous_fill)
-                  previous_fill = 0
-                  geneMatWalkIndex +=1
-               else:
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
-                  previous_fill += adjusted_ann_length/100
-                  adjusted_ann_length = 0
-                  if previous_fill > 1:
-                     previous_fill = 1
+            if gene_strand == '+':
+               while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
+                  if (adjusted_ann_length >= 100*(1- previous_fill)):
+                     classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                     adjusted_ann_length -= 100*(1- previous_fill)
+                     previous_fill = 0
+                     geneMatWalkIndex +=1
+                  else:
+                     classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                     previous_fill += adjusted_ann_length/100
+                     adjusted_ann_length = 0
+                     if previous_fill > 1:
+                        previous_fill = 1
 
-            while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
-               if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
-                  adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
-                  previous_fill = 0
-                  geneMatWalkIndex +=1
-               else:
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
-                  previous_fill += adjusted_ann_length/gene_length_unit
-                  adjusted_ann_length = 0
-                  if previous_fill > 1:
-                     previous_fill = 1
+               while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
+                  if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
+                     classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                     adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
+                     previous_fill = 0
+                     geneMatWalkIndex +=1
+                  else:
+                     classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                     previous_fill += adjusted_ann_length/gene_length_unit
+                     adjusted_ann_length = 0
+                     if previous_fill > 1:
+                        previous_fill = 1
+
+               if (adjusted_ann_length > 0) and geneMatWalkIndex == 129:
+                     if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
+                        classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                        adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
+                        previous_fill = 0
+                        geneMatWalkIndex +=1
+                     else:
+                        classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                        previous_fill += adjusted_ann_length/gene_length_last_unit
+                        adjusted_ann_length = 0
+                        if previous_fill > 1:
+                           previous_fill = 1
+                         
+               while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
+                  if (adjusted_ann_length >= 100*(1- previous_fill)):
+                     classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                     adjusted_ann_length -= 100*(1- previous_fill)
+                     previous_fill = 0
+                     geneMatWalkIndex +=1
+                  else:
+                     classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                     previous_fill += adjusted_ann_length/100
+                     adjusted_ann_length = 0
+                     if previous_fill > 1:
+                        previous_fill = 1
 
 
-            if (adjusted_ann_length > 0) and geneMatWalkIndex == 129:
-               if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
-                  adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
-                  previous_fill = 0
-                  geneMatWalkIndex +=1
-               else:
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
-                  previous_fill += adjusted_ann_length/gene_length_last_unit
-                  adjusted_ann_length = 0
-                  if previous_fill > 1:
-                     previous_fill = 1
+            if gene_strand == '-':
+               while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
+                  if (adjusted_ann_length >= 100*(1- previous_fill)):
+                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                     adjusted_ann_length -= 100*(1- previous_fill)
+                     previous_fill = 0
+                     geneMatWalkIndex +=1
+                  else:
+                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                     previous_fill += adjusted_ann_length/100
+                     adjusted_ann_length = 0
+                     if previous_fill > 1:
+                        previous_fill = 1
+                        
+               if (adjusted_ann_length > 0) and geneMatWalkIndex == 30:
+                     if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
+                        classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                        adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
+                        previous_fill = 0
+                        geneMatWalkIndex +=1
+                     else:
+                        classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                        previous_fill += adjusted_ann_length/gene_length_last_unit
+                        adjusted_ann_length = 0
+                        if previous_fill > 1:
+                           previous_fill = 1
+
+
+               while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
+                  if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
+                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                     adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
+                     previous_fill = 0
+                     geneMatWalkIndex +=1
+                  else:
+                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                     previous_fill += adjusted_ann_length/gene_length_unit
+                     adjusted_ann_length = 0
+                     if previous_fill > 1:
+                        previous_fill = 1
 
                          
-            while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
-               if (adjusted_ann_length >= 100*(1- previous_fill)):
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
-                  adjusted_ann_length -= 100*(1- previous_fill)
-                  previous_fill = 0
-                  geneMatWalkIndex +=1
-               else:
-                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
-                  previous_fill += adjusted_ann_length/100
-                  adjusted_ann_length = 0
-                  if previous_fill > 1:
-                     previous_fill = 1
+               while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
+                  if (adjusted_ann_length >= 100*(1- previous_fill)):
+                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                     adjusted_ann_length -= 100*(1- previous_fill)
+                     previous_fill = 0
+                     geneMatWalkIndex +=1
+                  else:
+                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                     previous_fill += adjusted_ann_length/100
+                     adjusted_ann_length = 0
+                     if previous_fill > 1:
+                        previous_fill = 1
 
 
                 # if gene strand is positive, or negative, flag which label list we use
