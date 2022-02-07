@@ -412,7 +412,11 @@ with open(fileName, 'rb') as pickledFile:
     summaryAnnotation = pickle.load(pickledFile)
 
 # some tests reading annotation file
-#>>>>>>>>>>>>>>>>>>>>    
+#>>>>>>>>>>>>>>>>>>>>
+with open(annFile, 'r') as f:
+   for i in range(3):
+      print(f.readline())
+   print(f.tell())
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # PLOTS for class and annotation labels

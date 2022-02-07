@@ -1,0 +1,13 @@
+
+import os
+
+inputFile = 'fileList.txt'
+with open(inputFile, 'r') as fileList:
+
+#    for line in fileList:
+    line = fileList.readline()
+    stripLine = line.strip()
+    resultPath = '/'.join(stripLine.split('/')[4:-1])
+    os.makedirs(resultPath, exist_ok=True)
+    os.system('gsutil cp %s %s' %(stripLine, resultPath))
+
