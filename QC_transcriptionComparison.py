@@ -412,7 +412,11 @@ with open(fileName, 'rb') as pickledFile:
     summaryAnnotation = pickle.load(pickledFile)
 
 # some tests reading annotation file
-#>>>>>>>>>>>>>>>>>>>>    
+#>>>>>>>>>>>>>>>>>>>>
+with open(annFile, 'r') as f:
+   for i in range(3):
+      print(f.readline())
+   print(f.tell())
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # PLOTS for class and annotation labels
@@ -465,6 +469,18 @@ for i, key in enumerate(annotationList):
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 # PLOTS for class and annotation labels
 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# using linecache for reading annotation file
+#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+import linecache
+for i in range(10):
+   line = linecache.getline(annFile, i)
+   print(line)
+
+with open(annFile, 'r') as annotations:
+   line = linecache.getline(annotations, 1)
 
 ########################################
 # 2. Getting the gene structures from GTF
@@ -733,7 +749,27 @@ for i in range(10):
 
 #############################################################    
 # 3. Comparing the annotation labels to the genomic regions and transcriptomic data
-#############################################################    
+#############################################################
+
+import linecache
+
+
+# just checking to see how many incidents of gene overlaps do we have
+geneSS = np.zeros(len(geneIDList))
+overlaps = 0
+previous = 0
+for i in range(len(geneIDList)):
+   geneSS[i] = gene_start = geneList[geneIDList[i]].start
+   if geneSS[i] < previous:
+      overlaps += 1
+   previous = geneList[geneIDList[i]].end
+
+fig = plt.figure()
+ax = plt.axes()
+ax.plot(geneSS)
+fig.show()
+# 5941 where the start of the next gene is before the end of the previous gene (overlaps)
+
 
 '''
 This is to examine the enrichment the labels and classes in genomic regions, and also for the expressed versus
@@ -788,8 +824,9 @@ print(labelCount)
 extension = 3000 # count of basepairs monitored before and after the gene coordinates
 
 cgi = 0 # walks on the geneIDList
-ann_start = 0
-ann_end = 0
+ann_start = 0 # the start of the current annotation
+ann_end = 0 # the end of the current annotation
+ann_chr = 'chr'
 ann_line_count = 0 # this is just to check the progress through the annotation file
 previous_class = ''
 
@@ -807,31 +844,211 @@ The other matrices I will use for the exon and stuff.
 
 '''
 
-# just checking to see how many incidents of gene overlaps do we have
-geneSS = np.zeros(len(geneIDList))
-overlaps = 0
-previous = 0
-for i in range(len(geneIDList)):
-   geneSS[i] = gene_start = geneList[geneIDList[i]].start
-   if geneSS[i] < previous:
-      overlaps += 1
-   previous = geneList[geneIDList[i]].end
-
-fig = plt.figure()
-ax = plt.axes()
-ax.plot(geneSS)
-fig.show()
-# 5941 where the start of the next gene is before the end of the previous gene (overlaps)
-
 # the zero, zero and low, medium and high - see above
 labelMats = [np.zeros((labelCount, 160)),np.zeros((labelCount, 160)),np.zeros((labelCount, 160))]
 classMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
 
+# this is to use for the negative strand genes
 tempLabelMats = [np.zeros((labelCount, 160)),np.zeros((labelCount, 160)),np.zeros((labelCount, 160))]
 tempClassMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
 
-cig = 0
+annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
+genomic_region_start_annLineInd = 0
+firstGenomicAnn = True
 
+previous_gene_chr = 'chr'
+previous_extension_end = 0 # doesn't matter since chr condition is never true until the first gene is processed
+
+# TODO: add annFile definition as annotation file
+
+'''
+* we define a genomic region as its start to end, plus the extension on each side
+* we define a territory of a gene with regards to annotations as all the basepairs before the gene's extended
+  sequence, as well as its actual genomic region (the extended sequence)
+* once in each genomic region, we keep the annotationLineInd in the genomic_region_start_annLineInd. If the genomic region starts within 
+  the previous genomic region, we set the annLineInd as the genomic_region_start_annLineInd
+
+Walking on the genomic regions from the geneList using the geneIDList filling the enrichment data matrix:
+
+-- walk through annotations, until we reach the actual genomic region of the current gene's territory:
+    
+--- record the labels for the genomic region until the end of genomic region (which is the end of genomic territory as well)
+
+NOTICE THE STRAND MATTERS HERE!
+
+'''
+
+
+# while cgi < len(geneIDList): # modify the condition for the test runs
+while cgi < 1: # >>>>>>>>>> TEST
+
+   'we are in the gene territory'
+   firstGenomicAnn = True
+   
+   geneID = geneIDList[cgi]
+   gene_chr = geneList[geneIDList[cgi]].chrom
+   
+   gene_start = geneList[geneID].start
+   gene_end = geneList[geneID].end
+   gene_length = gene_end - gene_start
+   gene_length_unit = int(gene_length/100)
+   gene_length_last_unit = gene_length - (99* gene_length_unit)
+   # TODO: something to fix: the gene_length_last_unit for negative strand versus positive strand
+
+   extension_start = gene_start - extension
+   extension_end = gene_end + extension
+
+   if (gene_chr == previous_gene_chr) and (previous_extension_end > extension_start):
+      ''' if this gene starts somewhere in the preivous genomic region'''
+      annLineInd = genomicRegionStartAnnLineInd
+   
+   gene_strand = geneList[geneID].strand
+
+
+   ''' picking the label/class matrix based on the gene expression level'''
+   #TODO catch exception for when geneID is not in expression
+   gene_exp = expression[geneID]
+   if gene_exp == 0:
+      expMatInd = 0
+   elif gene_exp > 1:
+      expMatInd = 2
+   else:
+      expMatInd = 1
+      
+   geneMatWalkIndex = 0
+   previous_fill = 0 # at the begining of each gene, annotations are full
+
+   # reading the next annotation
+   line = linecache.getline(annFile, annLineInd)
+   annLineInd +=1
+   ann_line_count += 1
+   fields = line.strip().split()
+            
+   ann_chr = fields[0]
+   ann_start = int(fields[1])
+   ann_end = int(fields[2])
+        
+   while ((ann_start < extension_end) or not(gene_chr == ann_chr)) and geneMatWalkIndex < 160: 
+           
+      '''
+      NOTE: the second condition is for when we are at the end of a gene's territory, and then at the end of a chromosome, so when we go to the next gene, 
+      ann_start is not smaller than extension_end, and we need to read the annotations until we are on the same chromosome
+
+      The condition to be in one gene's territory (and not the next one), and it is for reading the annotations
+      while in THIS gene territory, read annotations until we reach to the genomic region (plus extension)
+      
+      '''
+
+      #  print('hereIam') #>>>>>>>>>> test
+      #  line = annotations.readline()
+            
+
+      if ann_chr == gene_chr: # if we are in the genomic region (with extension)
+         if ((ann_start < extension_end and ann_start > extension_start) or 
+             (ann_end < extension_end and ann_end > extension_start) or
+             (ann_start < extension_start and ann_end > extension_end)):
+
+                   
+            ''' We are in the genonimc region (with extension)'''
+            
+            if firstGenomicAnn:
+               ''' Keeping the line index of the first annotation of the genomic region for overlapping genes'''
+               genomicRegionStartAnnLineInd = annLineInd -1
+               firstGenomicAnn = False
+
+
+            ''' Taking off for filling the matrices... '''
+            adjusted_ann_start = max(0, ann_start - extension_start)
+            adjusted_ann_end = min(ann_end - extension_start, extension_end - extension_start)
+            adjusted_ann_length = adjusted_ann_end - adjusted_ann_start
+
+            ann_label = fields[3]
+            ann_class = ann_label.split('_')[1]
+            classInd = classListIndMap[ann_class]
+            #labelInd = #TODO: get it
+            
+            # expMatInd
+            while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
+               if (adjusted_ann_length >= 100*(1- previous_fill)):
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                  adjusted_ann_length -= 100*(1- previous_fill)
+                  previous_fill = 0
+                  geneMatWalkIndex +=1
+               else:
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                  previous_fill += adjusted_ann_length/100
+                  adjusted_ann_length = 0
+                  if previous_fill > 1:
+                     previous_fill = 1
+
+            while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
+               if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                  adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
+                  previous_fill = 0
+                  geneMatWalkIndex +=1
+               else:
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                  previous_fill += adjusted_ann_length/gene_length_unit
+                  adjusted_ann_length = 0
+                  if previous_fill > 1:
+                     previous_fill = 1
+
+
+            if (adjusted_ann_length > 0) and geneMatWalkIndex == 129:
+               if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                  adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
+                  previous_fill = 0
+                  geneMatWalkIndex +=1
+               else:
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                  previous_fill += adjusted_ann_length/gene_length_last_unit
+                  adjusted_ann_length = 0
+                  if previous_fill > 1:
+                     previous_fill = 1
+
+                         
+            while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
+               if (adjusted_ann_length >= 100*(1- previous_fill)):
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                  adjusted_ann_length -= 100*(1- previous_fill)
+                  previous_fill = 0
+                  geneMatWalkIndex +=1
+               else:
+                  classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                  previous_fill += adjusted_ann_length/100
+                  adjusted_ann_length = 0
+                  if previous_fill > 1:
+                     previous_fill = 1
+
+
+                # if gene strand is positive, or negative, flag which label list we use
+                # the only difference between the two strands is that I am going to reverse the index of
+                # the columns in the matrix
+
+      if geneMatWalkIndex < 160: 
+         line = linecache.getline(annFile, annLineInd)
+         annLineInd +=1
+         ann_line_count += 1
+         fields = line.strip().split()
+          
+         ann_chr = fields[0]
+         ann_start = int(fields[1])
+         ann_end = int(fields[2])
+        
+
+   cgi += 1 # next gene
+   previous_extension_end = extension_end
+   previous_gene_chr = gene_chr
+   ###
+   #TODO: we are probably missing something at the end of the last gene
+   ###
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# the following lines are in the process of redoing using linecash instead of readline for the annotation file
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 
 with open(annFile, 'r') as annotations:
     
     '''
@@ -888,8 +1105,10 @@ with open(annFile, 'r') as annotations:
 
             '''
 
-#            print('hereIam') #>>>>>>>>>> test
-            line = annotations.readline()
+            #  print('hereIam') #>>>>>>>>>> test
+            #  line = annotations.readline()
+            
+            line = linecache.getline(annotations)
             ann_line_count += 1
             fields = line.strip().split()
             
@@ -967,11 +1186,11 @@ with open(annFile, 'r') as annotations:
             ### if exp is medium + high
 
 
-        cgi += 1 # next gene
+   cgi += 1 # next gene
 
-        ###
-        #TODO: we are probably missing something at the end of the last gene
-        ###
+   ###
+   #TODO: we are probably missing something at the end of the last gene
+   ###
 
 
 
