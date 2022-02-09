@@ -396,7 +396,17 @@ with open(annFile, 'r') as annotations, open(annFileGR, 'w') as grFile:
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 # sorting classes and labels
-##### TODO
+# the sorting is for plotting. We have a sorted class list so don't need it for now
+# sorting labelList
+labelList = list(labels.keys())
+sortedLabelList = []
+print(segwayLabels)
+for label in segwayLabels:
+   print(label)
+   for item in labelList:
+      print(item)
+      if item.split('_')[1] == label:
+         sortedLabelList.append(item)
 
 
 # saving classes and labels
@@ -807,16 +817,17 @@ labels = summaryAnnotation['labels']
 
 #classList = list(classes.keys())
 classList = segwayLabels
+classCount = len(classList) # this is the default for our Segway annotation annotations - 9
 classListIndMap = {}
 for i in range(len(classList)):
    classListIndMap[classList[i]] = i
    
-labelList = list(labels.keys())
-classCount = 9 # this is the default for our annotations
+labelList = list(labels.keys()) # this is per sample
 labelCount = len(labelList) # this could vary for each annotation file
-print(labelCount)
-
-# TODO: sort the classList and label list
+print(sortedLabelList)
+labelListIndMap = {}
+for i in range(len(labelList)):
+   labelListIndMap[sortedLabelList[i]] = i
 
 # TODO: the expression{} must have been saved, load it here
 # 'expression' is a dictionary mapping gene ID to the expression level read in 0.2. 
@@ -848,9 +859,9 @@ The other matrices I will use for the exon and stuff.
 labelMats = [np.zeros((labelCount, 160)),np.zeros((labelCount, 160)),np.zeros((labelCount, 160))]
 classMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
 
-# this is to use for the negative strand genes
-tempLabelMats = [np.zeros((labelCount, 160)),np.zeros((labelCount, 160)),np.zeros((labelCount, 160))]
-tempClassMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
+# this is to use for the negative strand genes - not using now
+#tempLabelMats = [np.zeros((labelCount, 160)),np.zeros((labelCount, 160)),np.zeros((labelCount, 160))]
+#tempClassMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
 
 annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
 genomic_region_start_annLineInd = 0
@@ -880,13 +891,15 @@ NOTICE THE STRAND MATTERS HERE!
 
 
 # while cgi < len(geneIDList): # modify the condition for the test runs
-while cgi < 1: # >>>>>>>>>> TEST
+while cgi < 1000: # >>>>>>>>>> TEST
+   print(cgi)
 
    'we are in the gene territory'
    firstGenomicAnn = True
    
    geneID = geneIDList[cgi]
    gene_chr = geneList[geneIDList[cgi]].chrom
+   print(geneID)
 
    gene_strand = geneList[geneID].strand
    gene_start = geneList[geneID].start
@@ -967,20 +980,23 @@ while cgi < 1: # >>>>>>>>>> TEST
             adjusted_ann_length = adjusted_ann_end - adjusted_ann_start
 
             ann_label = fields[3]
+            labelInd = labelListIndMap(ann_label)
+            
             ann_class = ann_label.split('_')[1]
             classInd = classListIndMap[ann_class]
-            #labelInd = #TODO: get it
             
             # expMatInd
             if gene_strand == '+':
                while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
                   if (adjusted_ann_length >= 100*(1- previous_fill)):
                      classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                     labelMats[expMatInd][labelInd][geneMatWalkIndex] += 1 - previous_fill
                      adjusted_ann_length -= 100*(1- previous_fill)
                      previous_fill = 0
                      geneMatWalkIndex +=1
                   else:
                      classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                     labelMats[expMatInd][labelInd][geneMatWalkIndex] += adjusted_ann_length/100
                      previous_fill += adjusted_ann_length/100
                      adjusted_ann_length = 0
                      if previous_fill > 1:
@@ -989,11 +1005,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
                   if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
                      classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                     labelMats[expMatInd][labelInd][geneMatWalkIndex] += 1 - previous_fill
                      adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
                      previous_fill = 0
                      geneMatWalkIndex +=1
                   else:
                      classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                     labelMats[expMatInd][labelInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
                      previous_fill += adjusted_ann_length/gene_length_unit
                      adjusted_ann_length = 0
                      if previous_fill > 1:
@@ -1002,11 +1020,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                if (adjusted_ann_length > 0) and geneMatWalkIndex == 129:
                      if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
                         classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                        labelMats[expMatInd][labelInd][geneMatWalkIndex] += 1 - previous_fill
                         adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
                         previous_fill = 0
                         geneMatWalkIndex +=1
                      else:
                         classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                        labelMats[expMatInd][labelInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
                         previous_fill += adjusted_ann_length/gene_length_last_unit
                         adjusted_ann_length = 0
                         if previous_fill > 1:
@@ -1015,11 +1035,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
                   if (adjusted_ann_length >= 100*(1- previous_fill)):
                      classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                     labelMats[expMatInd][labelInd][geneMatWalkIndex] += 1 - previous_fill
                      adjusted_ann_length -= 100*(1- previous_fill)
                      previous_fill = 0
                      geneMatWalkIndex +=1
                   else:
                      classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                     labelMats[expMatInd][labelInd][geneMatWalkIndex] += adjusted_ann_length/100
                      previous_fill += adjusted_ann_length/100
                      adjusted_ann_length = 0
                      if previous_fill > 1:
@@ -1030,11 +1052,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
                   if (adjusted_ann_length >= 100*(1- previous_fill)):
                      classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                     labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += 1 - previous_fill
                      adjusted_ann_length -= 100*(1- previous_fill)
                      previous_fill = 0
                      geneMatWalkIndex +=1
                   else:
                      classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                     labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
                      previous_fill += adjusted_ann_length/100
                      adjusted_ann_length = 0
                      if previous_fill > 1:
@@ -1043,11 +1067,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                if (adjusted_ann_length > 0) and geneMatWalkIndex == 30:
                      if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
                         classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                        labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += 1 - previous_fill
                         adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
                         previous_fill = 0
                         geneMatWalkIndex +=1
                      else:
                         classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                        labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
                         previous_fill += adjusted_ann_length/gene_length_last_unit
                         adjusted_ann_length = 0
                         if previous_fill > 1:
@@ -1057,11 +1083,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
                   if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
                      classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                     labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += 1 - previous_fill
                      adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
                      previous_fill = 0
                      geneMatWalkIndex +=1
                   else:
                      classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                     labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
                      previous_fill += adjusted_ann_length/gene_length_unit
                      adjusted_ann_length = 0
                      if previous_fill > 1:
@@ -1071,11 +1099,13 @@ while cgi < 1: # >>>>>>>>>> TEST
                while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
                   if (adjusted_ann_length >= 100*(1- previous_fill)):
                      classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                     labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += 1 - previous_fill
                      adjusted_ann_length -= 100*(1- previous_fill)
                      previous_fill = 0
                      geneMatWalkIndex +=1
                   else:
                      classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                     labelMats[expMatInd][labelInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
                      previous_fill += adjusted_ann_length/100
                      adjusted_ann_length = 0
                      if previous_fill > 1:
@@ -1086,12 +1116,14 @@ while cgi < 1: # >>>>>>>>>> TEST
                 # the only difference between the two strands is that I am going to reverse the index of
                 # the columns in the matrix
 
-      if geneMatWalkIndex < 160: 
+      if geneMatWalkIndex < 160:
+         #print(geneMatWalkIndex)
+         #print(annLineInd)
          line = linecache.getline(annFile, annLineInd)
          annLineInd +=1
          ann_line_count += 1
          fields = line.strip().split()
-          
+
          ann_chr = fields[0]
          ann_start = int(fields[1])
          ann_end = int(fields[2])
@@ -1103,6 +1135,21 @@ while cgi < 1: # >>>>>>>>>> TEST
    ###
    #TODO: we are probably missing something at the end of the last gene
    ###
+
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+book = pd.DataFrame(classMats[2])
+ 
+sns.heatmap(book)
+
+figFile = dataFolder + 'testBatch/' + sample + '/exp2_heatmap.pdf'
+plt.savefig(figFile)
+plt.show()
+
+#########################################
+# CODE DRAFT
+#########################################
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1251,12 +1298,6 @@ with open(annFile, 'r') as annotations:
    #TODO: we are probably missing something at the end of the last gene
    ###
 
-
-
-
-#########################################
-# CODE DRAFT
-#########################################
 
 with open(gftFile, 'r') as coors:
     line = coors.readline()
