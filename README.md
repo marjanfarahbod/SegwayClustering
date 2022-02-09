@@ -15,14 +15,15 @@ For this task we need three input files:
 
 
 #### Products:
-geneTypesFromGTF.pkl: list of gene types and their gene counts in the file \\
-coorsFile.pkl: a dataframe with gene coordinates\\
+- geneTypesFromGTF.pkl: list of gene types and their gene counts in the file 
+- coorsFile.pkl: a dataframe with gene coordinates
 
 
 ### RNAseq info and pre-processing
 
 Which file to download from protal
-Code
+
+#### code 
 
 #### Products
 
