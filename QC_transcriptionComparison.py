@@ -10,8 +10,8 @@
 ## 0.2 preprocess and QC for the RNA-seq file
 ## 0.3 exploratory analysis for the annotation file
 ## 1. Parsing the annotation file, considering genomic coordinates
-## 2. Getting the gene structures from GTF
-## 3. Comparing the annotation labels to the genomic regions and transcriptomic data
+## 2. Parsing the GTF file: getting the gene structures from GTF
+## 3. Recording the annotation labels to the genomic regions and transcriptomic data
 
 ###############################
 # 0. initials
@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 
-# data folder
+# general data folder
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
 
 # the GTF file
@@ -31,6 +31,7 @@ gftFile = dataFolder + 'testBatch/gencode.v29.primary_assembly.annotation_UCSC_n
 # sample list (by folder name)
 sample = 'H1'
 
+# initial Segway labels ordered 
 segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -70,6 +71,8 @@ with open(gftFile, 'r') as coors:
          if features[2] == 'gene':
             geneTypeGeneCount[geneTypeIndex] += 1
 
+#  getting the count of genes for each gene type and gene recorcs
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 geneTypesFromGTF = [geneTypeList, geneTypeLineCount, geneTypeGeneCount]
 for i in range(len(geneTypeList)):
     print('%s, count:%d' %(geneTypeList[i], geneTypeCount[i]))
