@@ -5,11 +5,12 @@ Utility and pipeline code for Segway classifier labels.
 
 ### QC with transcriptomic data
 
-For this task we need three input files:
+For this task we need three initial input files:
 
-- The gene coordinates. We use the GTF file used for running some segtool commands for this ENCODE runs: https://www.encodeproject.org/files/gencode.v29.primary_assembly.annotation_UCSC_names/ genomic coordinates used for Segtools
+- The GTF file (contains gene coordinates): we use the file used for running some segtool commands for this ENCODE runs: https://www.encodeproject.org/files/gencode.v29.primary_assembly.annotation_UCSC_names/ genomic coordinates used for Segtools
 - The RNA-seq data for the sample(s) - each sample has one RNAseq file
 - The annotations with class labels (the initial sample with the transcript data name:H1 ID:ENCSR938GXK) - each sample has one .bed file
+
 
 ### Parsing and exploring the GTF file
 
@@ -25,7 +26,20 @@ Which file to download from protal
 
 #### code 
 
-#### Products
+#### Products:
+
+- expFile.pkl : gene expression data frame
+- geneExp_dict.pkl : gene expression dictionary {ID, log10(exp + 1)}
+
+### Annotation file processing
+
+This is something I need to do for each annotation file (each sample). I get the list of labels (cluster_class), and classes (the 9 Segway class) and their bps, region count
+
+#### code
+
+#### Product(s):
+- summaryAnnotation.pkl: list of labels{} and classes{} with their fields
+
 
 ### Transcript data comparison
 
