@@ -93,8 +93,12 @@ with open(fileName, 'rb') as pickledFile:
 
 geneTypeList = geneTypesFromGTF[0]    
     
-#>>>>> getting the gene coordinates: based on the third column, I have 58,780 genes in the file
-# I want the coordinates, gene name, gene ID, the strand, the type (both coding and non_coding)
+# getting the gene coordinates: based on the third column, I have 58,780 genes in the file
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+'''
+I want the coordinates, gene name, gene ID, the strand, the type (both coding and non_coding)
+'''
 
 chrom = []
 start = []
@@ -138,7 +142,10 @@ with open(gftFile, 'r') as coors:
                                 'geneID': geneID,
                                 'geneType': geneType})
 
-#>>>>> save the gene coordinates
+
+# save the gene coordinates
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 fileName = dataFolder + 'testBatch/coorsFile.pkl'
 coors_frame.to_pickle(fileName)
 
@@ -167,9 +174,19 @@ with open(RNAseqFile, 'r') as expFile:
             expression[geneID] += np.log10(float(fields[5]) + 1)
         else:
             expression[geneID] = np.log10(float(fields[5]) + 1)
-        
 
-#TODO : save expression dictionary
+
+# saving
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+fileName = dataFolder + 'testBatch/' + sample + '/geneExp_dict.pkl'
+with open(fileName, 'wb') as f:
+    pickle.dump(expression, f)
+
+# loading classes and labels
+fileName = dataFolder + 'testBatch/' + sample + '/geneExp_dict.pkl'
+with open(fileName, 'rb') as pickledFile:
+    expression = pickle.load(pickledFile)
+
 
 # reading the expression values in a dataframe
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -217,8 +234,6 @@ plt.show()
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # 0.3 exploratory analysis for the annotation file
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-#TODO: go through the file and count bps of different regions
 
 ########################################
 # 1. Parsing the annotation file, considering genomic coordinates
@@ -731,6 +746,8 @@ with open(gftFile, 'r') as coors:
 
 geneListsAndID = [geneList, geneIDList]
 
+# 
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 fileName = dataFolder + '/geneLists.pkl'
 with open(fileName, 'wb') as f:
     pickle.dump(geneListsAndID, f)
@@ -802,7 +819,7 @@ with open(fileName, 'wb') as f:
 
 fileName = dataFolder + '/geneLists.pkl' 
 with open(fileName, 'rb') as pickleFile:
-    geneLists = pickle.load(pickleFile)
+    geneListsAndID = pickle.load(pickleFile)
 
 geneList = geneLists[0]
 geneIDList = geneLists[1]
