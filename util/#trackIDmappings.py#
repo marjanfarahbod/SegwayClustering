@@ -35,7 +35,6 @@ with open(outputFile, 'w') as output:
                 else:
                     label = data_json['assay_title']
             
-
                 output.write('%s\t%s\n' %(id,label))
                 # get the error
 

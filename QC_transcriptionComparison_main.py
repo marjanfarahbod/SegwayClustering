@@ -941,7 +941,6 @@ while cgi < 1000: # >>>>>>>>>> TEST
       annLineInd = genomicRegionStartAnnLineInd
    
 
-
    ''' picking the label/class matrix based on the gene expression level'''
    #TODO catch exception for when geneID is not in expression
    gene_exp = expression[geneID]
