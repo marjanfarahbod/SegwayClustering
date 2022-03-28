@@ -1,0 +1,139 @@
+
+
+########################################
+# 0. Initials 
+########################################
+
+import linecache
+import pickle
+
+# General data folder
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+dataSubFolder = 'testBatch105'
+
+# GTF data structure
+fileName = dataFolder + '/geneLists.pkl'
+with open(fileName, 'rb') as pickleFile:
+    geneListsAndIDs = pickle.load(pickleFile)
+    
+geneList = geneListsAndIDs[0]
+geneIDList = geneListsAndIDs[1]
+del geneListsAndIDs
+
+segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+
+########################################
+# 1. Specifics
+########################################
+
+# annotation folder 
+annFolder = 'ENCSR596KFV'
+
+# .bed files - 
+bedFile = 'ENCFF187KFG.bed'
+
+# expression file 
+expFile = 'preferred_default_ENCFF776YSH.tsv'
+
+########################################
+# 2. Pre processings
+########################################
+
+# preping expression data
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+# file1        
+expression1 = {}
+with open(expFile1, 'r') as expFile:
+    line = expFile.readline() # there is one header line
+
+    for line in expFile:
+        fields = line.strip().split()
+        geneID = fields[0]
+        transcriptID = fields[1]
+
+        if geneID in expression1:
+            expression1[geneID] += np.log10(float(fields[5]) + 1)
+        else:
+            expression1[geneID] = np.log10(float(fields[5]) + 1)
+
+
+fileName = dataFolder + 'Mehdi_testRun/geneExp_dict_ENCFF345SHY.pkl'
+with open(fileName, 'wb') as f:
+    pickle.dump(expression1, f)
+
+# loading
+fileName = dataFolder + 'Mehdi_testRun/geneExp_dict_ENCFF240WBI.pkl'
+with open(fileName, 'rb') as pickledFile:
+    expression2 = pickle.load(pickledFile)
+
+
+# file2
+expression2 = {}
+with open(expFile1, 'r') as expFile:
+    line = expFile.readline() # there is one header line
+
+    for line in expFile:
+        fields = line.strip().split()
+        geneID = fields[0]
+        transcriptID = fields[1]
+
+        if geneID in expression2:
+            expression2[geneID] += np.log10(float(fields[5]) + 1)
+        else:
+            expression2[geneID] = np.log10(float(fields[5]) + 1)
+
+
+fileName = dataFolder + 'Mehdi_testRun/geneExp_dict_ENCFF240WBI.pkl'
+with open(fileName, 'wb') as f:
+    pickle.dump(expression2, f)
+
+    
+# loading classes and labels
+fileName = dataFolder + 'Mehdi_testRun/geneExp_dict_ENCFF240WBI.pkl'
+with open(fileName, 'rb') as pickledFile:
+    expression2 = pickle.load(pickledFile)
+
+
+# preping annotation data
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+annotation_generalInfo_clusters(bedFile2)
+
+def annotation_generalInfo_clusters(bedFile):
+
+    splitFileName = bedFile.split('/')
+    fileName = splitFileName[-1].split('.')[0]
+    index = bedFile.index(fileName)
+    outputFolder = bedFile[0:index]
+
+    clusters = {}
+    with open(bedFile, 'r') as annotations:
+
+        header = annotations.readline()
+        
+        for line in annotations:
+            fields = line.strip().split()
+            if fields[3] in clusters.keys():
+
+                clusters[fields[3]].bp_count += int(fields[2]) - int(fields[1])
+                clusters[fields[3]].region_count += 1
+                
+            else:
+                
+                called = fields[3]
+                biolabel = ''
+                cluster = ''
+                color = ''
+                bp_count = int(fields[2]) - int(fields[1])
+                region_count = 1
+                region_dist = 1
+                clusters[fields[3]] = Annotation(called, biolabel, cluster, color, bp_count, region_count, region_dist)
+
+    fileName = outputFolder + fileName + '_annotationSummary.pkl'
+    with open(fileName, 'wb') as f:
+        pickle.dump(clusters, f)
+
+    print('annotation summary saved in %s' %(fileName))
+

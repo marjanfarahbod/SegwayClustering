@@ -21,7 +21,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-
 # general data folder
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
 
@@ -707,8 +706,7 @@ with open(gftFile, 'r') as coors:
                 gtype = thisType
                 
                 ENS_ID = infos[9]
-                for x in enumerate(['"', ';']): ENS_ID = ENS_ID.replace(x[1], '')
-
+                for x in enumerate(['"', ';']): ENS_ID = ENS_ID.replaceaccess(x[1], '')
                 geneList[ENS_ID] = Gene(name, ENS_ID, gtype, chrom, start, end, strand)
                 geneIDList.append(ENS_ID)
                 #self.exon_list = [] # list of exons
