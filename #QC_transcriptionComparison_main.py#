@@ -1155,14 +1155,13 @@ while cgi < 1000: # >>>>>>>>>> TEST
 
 import seaborn as sns
 import matplotlib.pyplot as plt
-book = pd.DataFrame(classMats[2])
+book = pd.DataFrame(clusterMats[2])
  
 sns.heatmap(book)
 
 figFile = dataFolder + 'testBatch/' + sample + '/exp2_heatmap.pdf'
 plt.savefig(figFile)
 plt.show()
-
 #########################################
 # CODE DRAFT
 #########################################

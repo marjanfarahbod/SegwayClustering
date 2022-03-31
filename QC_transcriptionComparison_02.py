@@ -1,5 +1,12 @@
 # Scaling up the transcription data comparison
 
+################################################################################
+################################################################################
+##### TODO: fix the clussMat
+##### TODO: fix the gene thing
+################################################################################
+################################################################################
+
 ########################################
 # 0. Initials 
 ########################################
@@ -8,6 +15,7 @@ import linecache
 import pickle
 import re
 import numpy as np
+import pandas as pd
 # TODO: not sure if it works
 from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
 
@@ -114,6 +122,7 @@ for annAccession in annAccessionList:
 
 
 # loading expression dict
+expAccession = re.split('_|\.', expFileName)[2]
 inputFile = sampleFolderAdd + 'geneExp_dict_' + expAccession + '.pkl'
 with open(inputFile, 'rb') as pickledFile:
     expression = pickle.load(pickledFile)
@@ -237,4 +246,607 @@ for annAccession in annAccessionList:
 
     annotation_generalInfo_clusters(bedFileAdd)
 
+#############################################################    
+# 3. Comparing the annotation labels to the genomic regions and transcriptomic data
+#############################################################
+
+
+#classList = list(classes.keys())
+classList = segwayLabels
+classCount = len(classList) # this is the default for our Segway annotation annotations - 9
+classListIndMap = {}
+for i in range(len(classList)):
+   classListIndMap[classList[i]] = i
+
+extension = 3000 # count of basepairs monitored before and after the gene coordinates
+
+annAccessionCount = 0
+for annAccession in annAccessionList:
+
+    # for each annotation
+    if (annMeta[annAccession]['expressionFile'] != 'none'):
+
+        #  annAccession = annAccessionList[5]
+        #  print(annMeta[annAccession]['expressionFile'] != 'none')
+
+        print(annAccession)
+        annAccessionCount += 1
+        print(annAccessionCount)
+
+        expFileName = annMeta[annAccession]['expressionFile']
+        expAccession = re.split('_|\.', expFileName)[2]
+        inputFile = dataFolder + dataSubFolder + annAccession + '/geneExp_dict_' + expAccession + '.pkl'
+        print(inputFile)
+        with open(inputFile, 'rb') as pickledFile:
+            expression = pickle.load(pickledFile)
+
+
+        annFile = dataFolder + dataSubFolder + annAccession + '/' + annMeta[annAccession]['bedFile']
+        annFile = dataFolder + dataSubFolder + annAccession + '/' + 'filteredSortedBed.bed'
+        
+        bedFileName = annMeta[annAccession]['bedFile'].split('.')[0]
+        inputFile = dataFolder + dataSubFolder + annAccession + '/' + bedFileName + '_annotationSummary.pkl'
+        with open(inputFile, 'rb') as pickledFile:
+            summaryAnnotation = pickle.load(pickledFile)
+
+        #print(summaryAnnotation['classes'])
+        #print(summaryAnnotation['clusters'])
+
+        classes = summaryAnnotation['classes']
+        clusters = summaryAnnotation['clusters']
+
+        # TODO: this part should go to the annotation processing
+        clusterList = list(clusters.keys())
+        sortedClusterList = []
+        #print(segwayLabels)
+        for label in segwayLabels:
+            #print(label)
+            for item in clusterList:
+                #print(item)
+                if item.split('_')[1] == label:
+                    sortedClusterList.append(item)
+
+
+        # getting the cluster list index map
+        clusterList = list(clusters.keys()) # this is per sample
+        clusterCount = len(clusterList) # this could vary for each annotation file
+        print(sortedClusterList)
+        clusterListIndMap = {}
+        for i in range(len(clusterList)):
+            clusterListIndMap[sortedClusterList[i]] = i
+
+
+        cgi = 0 # walks on the geneIDList
+        ann_start = 0 # the start of the current annotation
+        ann_end = 0 # the end of the current annotation
+        ann_chr = 'chr'
+        ann_line_count = 0 # this is just to check the progress through the annotation file
+        previous_class = ''
+
+
+        clusterMats = [np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160))]
+        classMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
+
+        # this is to use for the negative strand genes - not using now
+        #tempClusterMats = [np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160))]
+        #tempClassMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
+
+        annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
+        genomic_region_start_annLineInd = 0
+        #firstGenomicAnn = True
+
+        previous_gene_chr = 'chr'
+        previous_extension_end = 0 # doesn't matter since chr condition is never true until the first gene is processed
+
+
+        #while cgi < len(geneIDList): # modify the condition for the test runs
+        while cgi < 120: # >>>>>>>>>> TEST
+            print('cgi')
+            print(cgi)
+
+            'we are in the gene territory, we are walking on the genes'
+            #firstGenomicAnn = True
+   
+            geneID = geneIDList[cgi]
+            gene_chr = geneList[geneIDList[cgi]].chrom
+            #print(geneID)
+
+            gene_strand = geneList[geneID].strand
+            gene_start = geneList[geneID].start
+            gene_end = geneList[geneID].end
+            gene_length = gene_end - gene_start
+            gene_length_unit = int(gene_length/100)
+            if gene_length_unit == 0:
+                print('gene smaller than 100bp, skipping it')
+                cgi = cgi + 1
+                continue
+            gene_length_last_unit = gene_length - (99* gene_length_unit)
+            # TODO: something to fix: the gene_length_last_unit for negative strand versus positive strand
+
+            extension_start = gene_start - extension
+            extension_end = gene_end + extension
+
+            print('%ss, %s, %s' %(gene_chr, extension_start, extension_end))
+
+            ''' 
+            if this gene starts somewhere in the preivous genomic region, 
+            I will go back in the annotation file to the beginning of annotation for the previous gene
+            changed this th the next while loop - basically we will go back until the annotations start before the gene territory
+
+            '''
+            #if (gene_chr == previous_gene_chr) and (previous_extension_end > extension_start):
+            #   annLineInd = genomicRegionStartAnnLineInd
+
+            ''' picking the label/class matrix based on the gene expression level'''
+            #TODO catch exception for when geneID is not in expression
+            gene_exp = expression[geneID]
+            if gene_exp == 0:
+                expMatInd = 0
+            elif gene_exp > 1:
+                expMatInd = 2
+            else:
+                expMatInd = 1
+
+            print('expMatInd')
+            print(expMatInd) # >>>>> test
+       
+            geneMatWalkIndex = 0
+            previous_fill = 0 # at the begining of each gene, annotations are full
+
+            # reading the next annotation
+            line = linecache.getline(annFile, annLineInd)
+            annLineInd +=1
+            ann_line_count += 1
+            fields = line.strip().split()
+   
+            ann_chr = fields[0]
+            ann_start = int(fields[1])
+            ann_end = int(fields[2])
+
+            if (gene_chr != previous_gene_chr): # in case of chromosome change
+                #print('gene chr not equal to previous gene chr')
+                while (ann_chr != gene_chr):
+                    #print('reading annotations until it is equal')
+                    line = linecache.getline(annFile, annLineInd)
+                    fields = line.strip().split()
+                    annLineInd +=1
+                    ann_line_count += 1
+                
+                    ann_chr = fields[0]
+                    ann_start = int(fields[1])
+                    ann_end = int(fields[2])
+            
+
+            while (ann_start > extension_start) and (gene_chr == ann_chr): # in case of overlapping genes
+                print('ann start greater than extension start, getting back in annotation until it is not')
+                print(annLineInd)
+                print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+                annLineInd = annLineInd - 5
+                line = linecache.getline(annFile, annLineInd)
+                annLineInd +=1
+                ann_line_count += 1
+                fields = line.strip().split()
+                
+                ann_chr = fields[0]
+                ann_start = int(fields[1])
+                ann_end = int(fields[2])
+                #print('overlapping genes here')
+                #print(annLineInd)
+   
+            while ((ann_start < extension_end) or not(gene_chr == ann_chr)) and geneMatWalkIndex < 160: 
+
+                '''
+                NOTE: the second condition is for when we are at the end of a gene's territory, and then at the end of a chromosome, so when we go to the next gene, 
+                ann_start is not smaller than extension_end, and we need to read the annotations until we are on the same chromosome
+
+                The condition to be in one gene's territory (and not the next one), and it is for reading the annotations
+                while in THIS gene territory, read annotations until we reach to the next genomic region (plus extension)
+      
+                '''
+
+                #  print('hereIam') #>>>>>>>>>> test
+                #  line = annotations.readline()
+            
+                #print('in the gene region, reading annotations until we are out')
+                #print('%ss, %s, %s' %(gene_chr, extension_start, extension_end))
+                
+                # in the next sections we are processing the annotation
+                if ann_chr == gene_chr: # if we are in the same choromosome
+                    if ((ann_start < extension_end and ann_start > extension_start) or 
+                        (ann_end < extension_end and ann_end > extension_start) or
+                        (ann_start < extension_start and ann_end > extension_end)):
+
+                   
+                        ''' We are in the genonimc region (with extension)'''
+                        #print('annotation')
+                        #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+                        
+            
+                        #if firstGenomicAnn: # I think I will remove this one since I just keep going back on annotation
+                        #   ''' Keeping the line index of the first annotation of the genomic region for overlapping genes'''
+                        #    genomicRegionStartAnnLineInd = annLineInd -1
+                        #   firstGenomicAnn = False
+
+
+                        ''' Taking off for filling the matrices... '''
+                        adjusted_ann_start = max(0, ann_start - extension_start)
+                        adjusted_ann_end = min(ann_end - extension_start, extension_end - extension_start)
+                        adjusted_ann_length = adjusted_ann_end - adjusted_ann_start
+
+                        ann_cluster = fields[3]
+                        clusterInd = clusterListIndMap[ann_cluster]
+            
+                        ann_class = ann_cluster.split('_')[1]
+                        classInd = classListIndMap[ann_class]
+            
+                        # expMatInd
+
+                        if gene_strand == '+':  # munching 100bp s from annotation, filling the geneMat
+                            while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
+                                if (adjusted_ann_length >= 100*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= 100*(1- previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += adjusted_ann_length/100
+                                    previous_fill += adjusted_ann_length/100
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+
+                            while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
+                                if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                                    previous_fill += adjusted_ann_length/gene_length_unit
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+
+                            if (adjusted_ann_length > 0) and geneMatWalkIndex == 129:
+                                if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                                    previous_fill += adjusted_ann_length/gene_length_last_unit
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+                            
+                            while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
+                                if (adjusted_ann_length >= 100*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= 100*(1- previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][geneMatWalkIndex] += adjusted_ann_length/100
+                                    clusterMats[expMatInd][clusterInd][geneMatWalkIndex] += adjusted_ann_length/100
+                                    previous_fill += adjusted_ann_length/100
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+
+
+                        if gene_strand == '-':
+                           # print('here in the negative strand')
+                            while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
+                            #    print('first while')
+                                if (adjusted_ann_length >= 100*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= 100*(1- previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                                    previous_fill += adjusted_ann_length/100
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+                         
+                            if (adjusted_ann_length > 0) and geneMatWalkIndex == 30:
+                                if (adjusted_ann_length >= gene_length_last_unit*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= gene_length_last_unit*(1 - previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_last_unit
+                                    previous_fill += adjusted_ann_length/gene_length_last_unit
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+
+
+                            while(adjusted_ann_length > 0) and geneMatWalkIndex < 129:
+                                if (adjusted_ann_length >= gene_length_unit*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= gene_length_unit*(1 - previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += adjusted_ann_length/gene_length_unit
+                                    previous_fill += adjusted_ann_length/gene_length_unit
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+
+                         
+                            while(adjusted_ann_length > 0) and (geneMatWalkIndex < 160):
+                                if (adjusted_ann_length >= 100*(1- previous_fill)):
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += 1 - previous_fill
+                                    adjusted_ann_length -= 100*(1- previous_fill)
+                                    previous_fill = 0
+                                    geneMatWalkIndex +=1
+                                else:
+                                    classMats[expMatInd][classInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                                    clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += adjusted_ann_length/100
+                                    previous_fill += adjusted_ann_length/100
+                                    adjusted_ann_length = 0
+                                    if previous_fill > 1:
+                                        previous_fill = 1
+
+
+                                # if gene strand is positive, or negative, flag which cluster list we use
+                                # the only difference between the two strands is that I am going to reverse the index of
+
+                if geneMatWalkIndex < 160: # we read annotations until we cover the genee
+                    #print('geneMatWalkInd')
+                    #print(geneMatWalkIndex)
+                    #print('annLineInd')
+                    #print(annLineInd)
+                    line = linecache.getline(annFile, annLineInd)
+                    annLineInd +=1
+                    ann_line_count += 1
+                    fields = line.strip().split()
+
+                    ann_chr = fields[0]
+                    ann_start = int(fields[1])
+                    ann_end = int(fields[2])
+                    #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+
+                if geneMatWalkIndex >= 159:
+                    print('gene Done')
+                    print(geneMatWalkIndex)
+
+
+            cgi += 1 # next gene
+            previous_extension_end = extension_end
+            previous_gene_chr = gene_chr
+            ###
+            #TODO: we are probably missing something at the end of the last gene
+            ###
+        
+        linecache.clearcache()
+
+        expOverlapMats = {"clusterMats": clusterMats, "classMats": classMats}
+        outputFile = dataFolder + dataSubFolder + annAccession + '/' + 'defaultExp_5kg_expSummary.pkl'
+        with open(outputFile, 'wb') as f:
+            pickle.dump(expOverlapMats, f)
+
+        book = pd.DataFrame(clusterMats[2])
+        sns.heatmap(book)
+        figFile = dataFolder + dataSubFolder + annAccession + '/exp2cluster_heatmap.pdf'
+        plt.savefig(figFile)
+        plt.close('all')
+
+        book = pd.DataFrame(classMats[2])
+        sns.heatmap(book)
+        figFile = dataFolder + dataSubFolder + annAccession + '/exp2class_heatmap.pdf'
+        plt.savefig(figFile)
+        plt.close('all')
+
+        book = pd.DataFrame(clusterMats[0])
+        sns.heatmap(book)
+        figFile = dataFolder + dataSubFolder + annAccession + '/exp0cluster_heatmap.pdf'
+        plt.savefig(figFile)
+        plt.close('all')
+
+        book = pd.DataFrame(classMats[0])
+        sns.heatmap(book)
+        figFile = dataFolder + dataSubFolder + annAccession + '/exp0class_heatmap.pdf'
+        plt.savefig(figFile)
+        plt.close('all')
+
+
+        print('annotation summary saved in %s' %(outputFile))
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# getting the enrichment
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+
+annAccession = 'ENCSR427OOB'
+
+# expOverlapMats = {"clusterMats": clusterMats, "clussMats": classMats}
+inputFile = dataFolder + dataSubFolder + annAccession + '/' + 'defaultExp_5kg_expSummary.pkl'
+with open(inputFile, 'rb') as pickledFile:
+    expOverlapMats = pickle.load(pickledFile)
+
+book = pd.DataFrame(expOverlapMats['clussMats'][2])
+sns.heatmap(book)
+plt.show()
+plt.close('all')
+
+# they are the right matrix, get the matrix and the enrichment
+
+myMat = expOverlapMats['clussMats'][2]
+
+sumCol = book.sum(axis = 0)
+divValue = max(sumCol)
+bookDiv = book.div(divValue) # enrichment in the plot
+
+
+bedFileName = annMeta[annAccession]['bedFile'].split('.')[0]
+inputFile = dataFolder + dataSubFolder + annAccession + '/' + bedFileName + '_annotationSummary.pkl'
+with open(inputFile, 'rb') as pickledFile:
+    summaryAnnotation = pickle.load(pickledFile)
+
+annClassList = list(summaryAnnotation['classes'].keys())
+
+print(summaryAnnotation['classes'][annClassList[0]])
+
+totalbp = 0
+for ann in annClassList:
+    totalbp += summaryAnnotation['classes'][ann].bp_count
+
+annClassEnrichment = np.zeros(len(annClassList))
+for i,ann in enumerate(annClassList):
+    annClassEnrichment[i] = summaryAnnotation['classes'][ann].bp_count /totalbp
+
+myMat = expOverlapMats['clussMats'][2] + 1
+sumCol = myMat.sum(axis = 0)
+maxVal = sumCol.max()
+myMatDiv = myMat / maxVal
+
+# divide the relevant classes with the relevant value
+myMatEnr = myMadDiv
+for i,ann in enumerate(annClassList):
+
+    print(i)
+    print(ann)
+    row_number = classListIndMap[ann]
+    annDivValue = annClassEnrichment[i]
+
+    for j in range(myMatDiv.shape[1]):
+        myMatEnr[row_number][j] = myMatDiv[row_number][j] / annDivValue
+
+
+plt.plot(list(range(0,160)), np.log10(myMatDiv[3][:]))
+plt.show()
+  
+x = np.arange(0, 160, 1)
+y1 = np.log10(myMatEnr[3][:])
+y2 = np.log10(myMatEnr[4][:])
+y3 = np.log10(myMatEnr[5][:])
+y4 = np.log10(myMatEnr[6][:])
+y5 = np.log10(myMatEnr[0][:])
+
+x = np.arange(0, 160, 1)
+y1 =  (myMatDiv[3][:])
+y2 =  (myMatDiv[4][:])
+y3 =  (myMatDiv[5][:])
+y4 =  (myMatDiv[6][:])
+y5 =  (myMatDiv[0][:])         
+y6 =  (myMatDiv[2][:])         
+
+fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6,1, sharex=True)
+
+ax1.fill_between(x, 0, y1)
+ax1.set_ylim(0,1)
+
+ax2.fill_between(x, 0, y2)
+ax2.set_ylim(0,1)
+
+ax3.fill_between(x, 0, y3)
+ax3.set_ylim(0,1)
+
+ax4.fill_between(x, 0, y4)
+ax4.set_ylim(0,1)
+
+ax5.fill_between(x, 0, y5)
+ax5.set_ylim(0,1)
+
+ax6.fill_between(x, 0, y6)
+ax6.set_ylim(0,1)
+
+
+figFile = dataFolder + dataSubFolder + annAccession + '/TPERQF_distPlot_exp2.pdf'
+plt.savefig(figFile)
+plt.show()
+
+
+# >>>>>>>>>>>> copy for the expression zero
+
+myMat = expOverlapMats['clussMats'][0] + 1
+sumCol = myMat.sum(axis = 0)
+maxVal = sumCol.max()
+myMatDiv = myMat / maxVal
+
+# divide the relevant classes with the relevant value
+myMatEnr = myMadDiv
+for i,ann in enumerate(annClassList):
+
+    print(i)
+    print(ann)
+    row_number = classListIndMap[ann]
+    annDivValue = annClassEnrichment[i]
+
+    for j in range(myMatDiv.shape[1]):
+        myMatEnr[row_number][j] = myMatDiv[row_number][j] / annDivValue
+
+
+plt.plot(list(range(0,160)), np.log10(myMatDiv[3][:]))
+plt.show()
+  
+x = np.arange(0, 160, 1)
+y1 = np.log10(myMatEnr[3][:])
+y2 = np.log10(myMatEnr[4][:])
+y3 = np.log10(myMatEnr[5][:])
+y4 = np.log10(myMatEnr[6][:])
+y5 = np.log10(myMatEnr[0][:])
+
+x = np.arange(0, 160, 1)
+y1 =  (myMatDiv[3][:])
+y2 =  (myMatDiv[4][:])
+y3 =  (myMatDiv[5][:])
+y4 =  (myMatDiv[6][:])
+y5 =  (myMatDiv[0][:])
+y6 =  (myMatDiv[2][:])
+
+
+fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6,1, sharex=True)
+
+ax1.fill_between(x, 0, y1)
+ax1.set_ylim(0,1)
+
+ax2.fill_between(x, 0, y2)
+ax2.set_ylim(0,1)
+
+ax3.fill_between(x, 0, y3)
+ax3.set_ylim(0,1)
+
+ax4.fill_between(x, 0, y4)
+ax4.set_ylim(0,1)
+
+ax5.fill_between(x, 0, y5)
+ax5.set_ylim(0,1)
+
+ax6.fill_between(x, 0, y6)
+ax6.set_ylim(0,1)
+
+
+figFile = dataFolder + dataSubFolder + annAccession + '/TPERQF_distPlot_exp0.pdf'
+plt.savefig(figFile)
+plt.show()
+        
+plotMat = pd.DataFrame(myMatDiv)
+sns.heatmap(plotMat)
+
+plt.show()
+
+plt.plot()
 
