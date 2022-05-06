@@ -3,6 +3,8 @@
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Annotation and classes (biolabels)
 
+import pickle
+
 # keeping the unique cluster_class labels and their info for annotations
 # I defined my own classes since namedtuples are immutable - I preferred namedtuples to dict since they are defined with fields - 
 
@@ -133,3 +135,145 @@ class Intron(object): # introns don't have ID, but just identified by exon_end+1
 
     def __str__(self):
         return 'start = %d, end = %d' %(self.start, self.end)
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# this is for Segway
+def annotation_generalInfo_clusters(bedFileAdd):
+
+    splitFileName = bedFileAdd.split('/')
+    bedFileName = splitFileName[-1].split('.')[0]
+    index = bedFileAdd.index(bedFileName)
+    outputFolder = bedFileAdd[0:index]
+
+    previous_class = ''
+
+    clusters = {}
+    classes = {}
+    c = 0
+    with open(bedFileAdd, 'r') as annotations:
+
+        # annotations have no header
+        # header = annotations.readline()
+
+#        f = open(bedFileAdd, 'r')
+#        line = f.readline()
+        
+        for line in annotations:
+            c += 1
+            fields = line.strip().split()
+
+            # doing the clusters first
+            if fields[3] in clusters.keys():
+
+                clusters[fields[3]].bp_count += int(fields[2]) - int(fields[1])
+                clusters[fields[3]].region_count += 1
+                
+            else:
+                
+                called = fields[3]
+                biolabel = fields[3].split('_')[1]
+                cluster = fields[3].split('_')[0]
+                color = fields[8]
+                bp_count = int(fields[2]) - int(fields[1])
+                region_count = 1
+                region_dist = 1
+                clusters[fields[3]] = Annotation(called, biolabel, cluster, color, bp_count, region_count, region_dist)
+
+
+            # doing the class
+            if previous_class == fields[3].split('_')[1]:
+                classes[previous_class].bp_count +=  int(fields[2]) - int(fields[1])
+            else:
+                current_class = fields[3].split('_')[1]
+                if current_class in classes.keys():
+                    classes[current_class].bp_count +=  int(fields[2]) - int(fields[1])
+                    classes[current_class].region_count += 1
+                else:
+                    clusterList = [] # not filling it now, it can be filled later using annotations 
+                    biolabel = current_class
+                    color = fields[8]
+                    bp_count = int(fields[2]) - int(fields[1])
+                    region_count = 1
+                    region_dist = 1
+                    classes[biolabel] = AnnotationClass(biolabel, clusterList, color, bp_count, region_count, region_dist)
+
+            previous_class = fields[3].split('_')[1]
+
+            
+    # filling up the cluster distribution from distribution file
+    
+    segmentSizesFile = outputFolder + 'segment_sizes.tab.txt'
+    with open(segmentSizesFile, 'r') as inputFile:
+        lines = inputFile.readlines()
+    
+    clusterList = list(clusters.keys())
+    for cluster in clusterList:
+        cluster_number = int(cluster.split('_')[0])
+        fields = lines[cluster_number + 2].strip().split('\t')
+        info = {'num.segs': int(fields[1]), 'mean.len': float(fields[2]), 'median.len': float(fields[3]), 'stdev.len': float(fields[4]), 'num.bp': float(fields[5]), 'frac.bp': float(fields[6])}
+        clusters[cluster].region_dist = info
+
+    annotationSummary = {"classes": classes, "clusters": clusters}
+    outputFile = outputFolder + bedFileName + '_annotationSummary.pkl'
+    with open(outputFile, 'wb') as f:
+        pickle.dump(annotationSummary, f)
+
+    print('annotation summary saved in %s' %(outputFile))
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# this is for chmm
+# chmm has no cluster, we only have class data
+
+import pickle
+
+def annotation_generalInfo_classes_chmm(bedFileAdd):
+
+    splitFileName = bedFileAdd.split('/')
+    bedFileName = splitFileName[-1].split('.')[0]
+    index = bedFileAdd.index(bedFileName)
+    outputFolder = bedFileAdd[0:index]
+
+    previous_class = ''
+
+    classes = {}
+    c = 0
+    with open(bedFileAdd, 'r') as annotations:
+
+        # annotations have no header
+        # header = annotations.readline()
+
+        f = open(bedFileAdd, 'r')
+        line = f.readline()
+        
+        for line in annotations:
+            c += 1
+            fields = line.strip().split()
+
+            # doing the class 
+            if previous_class == fields[3]:
+                classes[previous_class].bp_count +=  int(fields[2]) - int(fields[1])
+            else:
+                current_class = fields[3]
+                if current_class in classes.keys():
+                    classes[current_class].bp_count +=  int(fields[2]) - int(fields[1])
+                    classes[current_class].region_count += 1
+                else:
+                    clusterList = [] # not filling it now, it can be filled later using annotations 
+                    biolabel = current_class
+                    color = fields[8]
+                    bp_count = int(fields[2]) - int(fields[1])
+                    region_count = 1
+                    region_dist = 1
+                    classes[biolabel] = AnnotationClass(biolabel, clusterList, color, bp_count, region_count, region_dist)
+
+            previous_class = fields[3]
+
+    annotationSummary = {"classes": classes}
+    outputFile = outputFolder + bedFileName + '_annotationSummary.pkl'
+    with open(outputFile, 'wb') as f:
+        pickle.dump(annotationSummary, f)
+
+    print('annotation summary saved in %s' %(outputFile))
+

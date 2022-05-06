@@ -91,11 +91,11 @@ annAccessionList = list(annMeta.keys())
 # annAccession = annAccessionList[3]
 
 for annAccession in annAccessionList:
-
+p
     sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
     print(sampleFolderAdd)
 
-    expFileName = annMeta[annAccession]['expressionFile']
+    expFileName = pannMeta[annAccession]['expressionFile']
     if (expFileName != 'none'):
 
 #        mistakeFile = sampleFolderAdd + 'geneExp_dict_ENCFF776YSH.pkl'
@@ -306,7 +306,6 @@ for annAccession in annAccessionList:
         with open(inputFile, 'rb') as pickledFile:
             expression = pickle.load(pickledFile)
 
-
         #annFile = dataFolder + dataSubFolder + annAccession + '/' + annMeta[annAccession]['bedFile']
         annFile = dataFolder + dataSubFolder + annAccession + '/' + annMeta[annAccession]['bedFile'].split('.')[0] + '_filteredSorted.bed' # annotation file needed filtering and sorting
         
@@ -468,7 +467,6 @@ for annAccession in annAccessionList:
         figFile = dataFolder + dataSubFolder + annAccession + '/exp2class_heatmap.pdf'
         plt.savefig(figFile)
         plt.close('all')
-
         book = pd.DataFrame(clusterMats[0])
         sns.heatmap(book)
         figFile = dataFolder + dataSubFolder + annAccession + '/exp0cluster_heatmap.pdf'
