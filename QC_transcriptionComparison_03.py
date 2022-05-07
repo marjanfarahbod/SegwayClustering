@@ -84,6 +84,10 @@ outputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
 with open(outputFile, 'wb') as f:
     pickle.dump(annMeta, f)
 
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as f:
+    annMeta = pickle.load(f)
+
     
 # 2.1. preping expression data
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -362,13 +366,14 @@ for annAccession in annAccessionList:
 
         previous_gene_chr = 'chr1'
         previous_extension_end = 0 # doesn't matter since chr condition is never true until the first gene is processed
-        previous_ann_chr = 'chr'
+        previous_ann_chr = 'chr1'
 
         #while cgi < len(geneIDList) and annLineInd < annLineCount: # modify the condition for the test runs
         while cgi < 26017: # >>>>>>>>>> MAIN
-        #while cgi < 5655:# >>>>>>>>>> TEST
-            #print('cgi')
-            #print(cgi)
+            
+        #while cgi < 18431:# >>>>>>>>>> TEST
+            print('cgi')
+            print(cgi)
 
             'we are in the gene territory, we are walking on the genes'
             #firstGenomicAnn = True
@@ -438,6 +443,7 @@ for annAccession in annAccessionList:
                 print('gene_chr %s' %(gene_chr))
                 print('p_gene_chr %s' %(previous_gene_chr))
                 print('ann_chr %s' %(ann_chr))
+                
                 while (ann_chr != gene_chr): # move on in the annotation until we reach to the next chromosome
                     #print('reading annotations until it is equal')
                     line = linecache.getline(annFile, annLineInd)
@@ -453,10 +459,25 @@ for annAccession in annAccessionList:
                 print(ann_chr)
                 print(previous_ann_chr)
 
+            # if (ann_chr != previous_ann_chr): # in case of chromosome change because annotation moved to the next chromosome
+                
+            if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
+                annLineInd = annLineInd - 2
+                line = linecache.getline(annFile, annLineInd)
+                annLineInd +=1
+                ann_line_count += 1
+                fields = line.strip().split()
+
+                ann_chr = fields[0]
+                ann_start = int(fields[1])
+                ann_end = int(fields[2])
+                
+
             while (ann_start > extension_start) and (gene_chr == ann_chr): # in case of overlapping genes
-                print('ann start greater than extension start, getting back in annotation until it is not')
-                print(annLineInd)
-                print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+                #print('ann start greater than extension start, getting back in annotation until it is not')
+                #print(annLineInd)
+                #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+                
                 annLineInd = annLineInd - 5
                 line = linecache.getline(annFile, annLineInd)
                 annLineInd +=1
@@ -466,12 +487,16 @@ for annAccession in annAccessionList:
                 ann_chr = fields[0]
                 ann_start = int(fields[1])
                 ann_end = int(fields[2])
+                
                 #print('overlapping genes here')
                 #print(annLineInd)
 
-            while ((ann_start < extension_end) or not(gene_chr == ann_chr)) and geneMatWalkIndex < 160: 
+            #while ((ann_start < extension_end) or not(gene_chr == ann_chr)) and geneMatWalkIndex < 160:
+            while ((ann_start < extension_end) and (gene_chr == ann_chr)) and geneMatWalkIndex < 160:
+                
 #            if (ann_chr != previous_ann_chr): # in case of chromosome change because annotation moved to the next chromosome
- #               if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
+                
+ #           if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
 
                 '''
                 NOTE: the second condition is for when we are at the end of a gene's territory, and then at the end of a chromosome, so when we go to the next gene, 
@@ -506,6 +531,7 @@ for annAccession in annAccessionList:
 
 
                         ''' Taking off for filling the matrices... '''
+                        
                         adjusted_ann_start = max(0, ann_start - extension_start)
                         adjusted_ann_end = min(ann_end - extension_start, extension_end - extension_start)
                         adjusted_ann_length = adjusted_ann_end - adjusted_ann_start
@@ -672,6 +698,7 @@ for annAccession in annAccessionList:
             cgi += 1 # next gene
             previous_extension_end = extension_end
             previous_gene_chr = gene_chr
+            
             ###
             #TODO: we are probably missing something at the end of the last gene
             ###

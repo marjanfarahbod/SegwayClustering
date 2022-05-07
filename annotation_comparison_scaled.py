@@ -328,8 +328,9 @@ for sampleFolder in sampleFolder_list:
                 cend = int(cfields[2])
 
         linecache.clearcache()
+
         
-        # save the matrix
+        # save the matrix - keep the count
 
         # do the plots, here or in some other loop
 
