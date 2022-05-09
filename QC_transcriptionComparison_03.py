@@ -1,10 +1,17 @@
 # Scaling up the transcription data comparison - the previous version of this code QC_transcriptionComparison_02.py is messed up - I made this code using git history
-
 ################################################################################
 ################################################################################
-##### TODO: fix the gene thing
+# TODO: fetch the length distribution data from length_distribution section 2.2?
 ################################################################################
 ################################################################################
+#
+# 0. Initials 
+# 1. Specifics
+# 2. Pre processings
+## 2.0 annotation folder prep
+## 2.1. preping expression data
+## 2.2. preping annotation data
+# 3. Comparing the annotation labels to the genomic regions and transcriptomic data
 
 ########################################
 # 0. Initials 
@@ -18,7 +25,6 @@ import pandas as pd
 import subprocess as sp
 import seaborn as sns
 import matplotlib.pyplot as plt
-# TODO: not sure if it works
 from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
 
 # General data folder
@@ -36,7 +42,6 @@ geneIDList = geneListsAndIDs[1]
 del geneListsAndIDs
 
 segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
-
 
 ########################################
 # 1. Specifics
@@ -103,11 +108,6 @@ for annAccession in annAccessionList:
     expFileName = annMeta[annAccession]['expressionFile']
     if (expFileName != 'none'):
         
-#        mistakeFile = sampleFolderAdd + 'geneExp_dict_ENCFF776YSH.pkl'
-#        print(mistakeFile)
-#        os.remove(mistakeFile)
-#        print('doneRemove')
-        
         print('doing the expression')
         expFile = sampleFolderAdd + expFileName
         print(expFile)
@@ -145,8 +145,6 @@ with open(inputFile, 'rb') as pickledFile:
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 # the function gets annotation bed file and documents the report on it for length and etc. for clusters, we also get the length distribution which is useful for classifier performance correction
-
-# fetch the length distribution data from length_distribution
 
 ## >>>>>>>>>>>>>>>>>>>>>>>> code for one file
 annAccession = annAccessionList[0]
@@ -241,9 +239,11 @@ def annotation_generalInfo_clusters(bedFileAdd):
         pickle.dump(annotationSummary, f)
         
     print('annotation summary saved in %s' %(outputFile))
+    
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # code for all files:
+# TODO: the code does the sord and filter for .bed files, it should be modified to call the function as well
 
 for annAccession in annAccessionList:
     
@@ -278,8 +278,7 @@ for annAccession in annAccessionList:
 # 3. Comparing the annotation labels to the genomic regions and transcriptomic data
 #############################################################
 
-#classList = list(classes.keys())
-classList = segwayLabels
+classList = segwayLabels # I want them to be sorted the same way, so I will use the hard coded listed
 classCount = len(classList) # this is the default for our Segway annotation annotations - 9
 classListIndMap = {}
 for i in range(len(classList)):
@@ -293,8 +292,8 @@ for annAccession in annAccessionList:
     # for each annotation
     if (annMeta[annAccession]['expressionFile'] != 'none'):
         
-        #  annAccession = annAccessionList[5]
-        #  print(annMeta[annAccession]['expressionFile'] != 'none')
+        #  annAccession = annAccessionList[5] #>>>> test
+        #  print(annMeta[annAccession]['expressionFile'] != 'none') #>>>> test
         
         print(annAccession)
         annAccessionCount += 1
@@ -308,38 +307,37 @@ for annAccession in annAccessionList:
             expression = pickle.load(pickledFile)
 
 
-        #annFile = dataFolder + dataSubFolder + annAccession + '/' + annMeta[annAccession]['bedFile']
-        annFile = dataFolder + dataSubFolder + annAccession + '/' + annMeta[annAccession]['bedFile'].split('.')[0] + '_filteredSorted.bed' # annotation file needed filtering and sorting
+        # using the sorted and filtered .bed file instead of the initial one
+        annFile = dataFolder + dataSubFolder + annAccession + '/' + annMeta[annAccession]['bedFile'].split('.')[0] + '_filteredSorted.bed' 
 
         bedFileName = annMeta[annAccession]['bedFile'].split('.')[0]
-        #bedFileName = 'ENCFF153PCI'
         inputFile = dataFolder + dataSubFolder + annAccession + '/' + bedFileName + '_annotationSummary.pkl'
         with open(inputFile, 'rb') as pickledFile:
             summaryAnnotation = pickle.load(pickledFile)
 
         annLineCount = int(sp.getoutput('wc -l %s' %(annFile)).split()[0])
 
-        #print(summaryAnnotation['classes'])
-        #print(summaryAnnotation['clusters'])
+        #print(summaryAnnotation['classes']) # >>>> test
+        #print(summaryAnnotation['clusters']) # >>>> test
 
         classes = summaryAnnotation['classes']
         clusters = summaryAnnotation['clusters']
         
-        # TODO: this part should go to the annotation processing
+        # TODO: this part should ideally go to the annotation processing and class creation. but I think it is better to do it here regardless just to be sure
         clusterList = list(clusters.keys())
         sortedClusterList = []
-        #print(segwayLabels)
+        #print(segwayLabels) # >>>> test
         for label in segwayLabels:
             #print(label)
             for item in clusterList:
-                #print(item)
+                #print(item) # >>>> test
                 if item.split('_')[1] == label:
                     sortedClusterList.append(item)
 
                     
         # getting the cluster list index map
         clusterList = list(clusters.keys()) # this is per sample
-        clusterCount = len(clusterList) # this could vary for each annotation file
+        clusterCount = len(clusterList) # note: this could vary for each annotation file
         print(sortedClusterList)
         clusterListIndMap = {}
         for i in range(len(clusterList)):
@@ -357,30 +355,27 @@ for annAccession in annAccessionList:
         clusterMats = [np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160))]
         classMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
         
-        # this is to use for the negative strand genes - not using now
-        # tempClusterMats = [np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160)),np.zeros((clusterCount, 160))]
-        #tempClassMats = [np.zeros((classCount, 160)),np.zeros((classCount, 160)),np.zeros((classCount, 160))]
+
         annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
         genomic_region_start_annLineInd = 0
-        #firstGenomicAnn = True
+
 
         previous_gene_chr = 'chr1'
         previous_extension_end = 0 # doesn't matter since chr condition is never true until the first gene is processed
         previous_ann_chr = 'chr1'
 
-        #while cgi < len(geneIDList) and annLineInd < annLineCount: # modify the condition for the test runs
+        #while cgi < len(geneIDList) and annLineInd < annLineCount: # >>>> test: modify the condition for the test runs
         while cgi < 26017: # >>>>>>>>>> MAIN
+        #while cgi < 18431:# >>>>
             
-        #while cgi < 18431:# >>>>>>>>>> TEST
             print('cgi')
             print(cgi)
 
             'we are in the gene territory, we are walking on the genes'
-            #firstGenomicAnn = True
    
             geneID = geneIDList[cgi]
             gene_chr = geneList[geneIDList[cgi]].chrom
-            #print(geneID)
+            #print(geneID) # >>>> test
             
             gene_strand = geneList[geneID].strand
             gene_start = geneList[geneID].start
@@ -388,26 +383,18 @@ for annAccession in annAccessionList:
             gene_length = gene_end - gene_start
             gene_length_unit = int(gene_length/100)
             if gene_length_unit == 0:
-                #print('gene smaller than 100bp, skipping it')
+                #print('gene smaller than 100bp, skipping it') # >>>> test
                 cgi = cgi + 1
                 continue
 
             gene_length_last_unit = gene_length - (99* gene_length_unit)
-            # TODO: something to fix: the gene_length_last_unit for negative strand versus positive strand
+            # TODO: ideally: something to fix: the gene_length_last_unit for negative strand versus positive strand
 
             extension_start = gene_start - extension
             extension_end = gene_end + extension
 
-            #print('%ss, %s, %s' %(gene_chr, extension_start, extension_end))
+            #print('%ss, %s, %s' %(gene_chr, extension_start, extension_end)) # >>>> test
 
-            ''' 
-            if this gene starts somewhere in the preivous genomic region, 
-            I will go back in the annotation file to the beginning of annotation for the previous gene
-            changed this th the next while loop - basically we will go back until the annotations start before the gene territory
-
-            '''
-            #if (gene_chr == previous_gene_chr) and (previous_extension_end > extension_start):
-            #   annLineInd = genomicRegionStartAnnLineInd
             
             ''' picking the label/class matrix based on the gene expression level'''
             #TODO catch exception for when geneID is not in expression
@@ -445,7 +432,7 @@ for annAccession in annAccessionList:
                 print('ann_chr %s' %(ann_chr))
                 
                 while (ann_chr != gene_chr): # move on in the annotation until we reach to the next chromosome
-                    #print('reading annotations until it is equal')
+                    #print('reading annotations until it is equal') # >>>> test
                     line = linecache.getline(annFile, annLineInd)
                     fields = line.strip().split()
                     annLineInd +=1
@@ -459,7 +446,6 @@ for annAccession in annAccessionList:
                 print(ann_chr)
                 print(previous_ann_chr)
 
-            # if (ann_chr != previous_ann_chr): # in case of chromosome change because annotation moved to the next chromosome
                 
             if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
                 annLineInd = annLineInd - 2
@@ -471,12 +457,19 @@ for annAccession in annAccessionList:
                 ann_chr = fields[0]
                 ann_start = int(fields[1])
                 ann_end = int(fields[2])
-                
+
+
+            ''' 
+            if this gene starts somewhere in the preivous genomic region, 
+            I will go back in the annotation file to the beginning of annotation for the previous gene
+            changed this th the next while loop - basically we will go back until the annotations start before the gene territory
+
+            '''
 
             while (ann_start > extension_start) and (gene_chr == ann_chr): # in case of overlapping genes
-                #print('ann start greater than extension start, getting back in annotation until it is not')
-                #print(annLineInd)
-                #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+                #print('ann start greater than extension start, getting back in annotation until it is not') # >>>> test
+                #print(annLineInd) # >>>> test
+                #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end)) # >>>> test
                 
                 annLineInd = annLineInd - 5
                 line = linecache.getline(annFile, annLineInd)
@@ -488,29 +481,25 @@ for annAccession in annAccessionList:
                 ann_start = int(fields[1])
                 ann_end = int(fields[2])
                 
-                #print('overlapping genes here')
-                #print(annLineInd)
+                #print('overlapping genes here') # >>>> test
+                #print(annLineInd) # >>>> test
 
-            #while ((ann_start < extension_end) or not(gene_chr == ann_chr)) and geneMatWalkIndex < 160:
+            #while ((ann_start < extension_end) or not(gene_chr == ann_chr)) and geneMatWalkIndex < 160: 
             while ((ann_start < extension_end) and (gene_chr == ann_chr)) and geneMatWalkIndex < 160:
                 
 #            if (ann_chr != previous_ann_chr): # in case of chromosome change because annotation moved to the next chromosome
-                
  #           if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
 
                 '''
-                NOTE: the second condition is for when we are at the end of a gene's territory, and then at the end of a chromosome, so when we go to the next gene, 
+                NOTE: the second condition is for when we are at the end of a gene's territory, and then at the end of a chromosome, so when we go to the next gene. At some point I changed the second condition from "or" to "and" 
                 ann_start is not smaller than extension_end, and we need to read the annotations until we are on the same chromosome
                 The condition to be in one gene's territory (and not the next one), and it is for reading the annotations
                 while in THIS gene territory, read annotations until we reach to the next genomic region (plus extension)
       
                 '''
 
-                #  print('hereIam') #>>>>>>>>>> test
-                #  line = annotations.readline()
-
-                #print('in the gene region, reading annotations until we are out')
-                #print('%ss, %s, %s' %(gene_chr, extension_start, extension_end))
+                #print('in the gene region, reading annotations until we are out') # >>>> test
+                #print('%ss, %s, %s' %(gene_chr, extension_start, extension_end)) # >>>> test
 
                 # in the next sections we are processing the annotation
                 if ann_chr == gene_chr: # if we are in the same choromosome
@@ -520,14 +509,8 @@ for annAccession in annAccessionList:
 
 
                         ''' We are in the genonimc region (with extension)'''
-                        #print('annotation')
-                        #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
-
-
-                        #if firstGenomicAnn: # I think I will remove this one since I just keep going back on annotation
-                        #   ''' Keeping the line index of the first annotation of the genomic region for overlapping genes'''
-                        #    genomicRegionStartAnnLineInd = annLineInd -1
-                        #   firstGenomicAnn = False
+                        #print('annotation') # >>>> test
+                        #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end)) # >>>> test
 
 
                         ''' Taking off for filling the matrices... '''
@@ -607,9 +590,9 @@ for annAccession in annAccessionList:
 
 
                         if gene_strand == '-':
-                           # print('here in the negative strand')
+                           # print('here in the negative strand') # >>>> test
                             while(adjusted_ann_length > 0) and geneMatWalkIndex < 30:
-                            #    print('first while')
+                            #    print('first while') # >>>> test
                                 if (adjusted_ann_length >= 100*(1- previous_fill)):
                                     classMats[expMatInd][classInd][159 - geneMatWalkIndex] += 1 - previous_fill
                                     clusterMats[expMatInd][clusterInd][159 - geneMatWalkIndex] += 1 - previous_fill
@@ -676,10 +659,10 @@ for annAccession in annAccessionList:
                                 # the only difference between the two strands is that I am going to reverse the index of
 
                 if geneMatWalkIndex < 160: # we read annotations until we cover the genee
-                    #print('geneMatWalkInd')
-                    #print(geneMatWalkIndex)
-                    #print('annLineInd')
-                    #print(annLineInd)
+                    #print('geneMatWalkInd') # >>>> test
+                    #print(geneMatWalkIndex) # >>>> test
+                    #print('annLineInd') # >>>> test
+                    #print(annLineInd) # >>>> test
                     line = linecache.getline(annFile, annLineInd)
                     annLineInd +=1
                     ann_line_count += 1
@@ -688,7 +671,7 @@ for annAccession in annAccessionList:
                     ann_chr = fields[0]
                     ann_start = int(fields[1])
                     ann_end = int(fields[2])
-                    #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end))
+                    #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end)) # >>>> test
 
                 if geneMatWalkIndex >= 159:
                     print('gene Done')
@@ -699,9 +682,6 @@ for annAccession in annAccessionList:
             previous_extension_end = extension_end
             previous_gene_chr = gene_chr
             
-            ###
-            #TODO: we are probably missing something at the end of the last gene
-            ###
 
         linecache.clearcache()
 
