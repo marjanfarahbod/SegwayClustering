@@ -5,7 +5,10 @@
 # 0. Initials
 # 1. Unzip and sort the chmm files for each sample
 # 2. Get the summary info for each chrom file (but we dont need it now)
-
+# 3. do the comparison, save the matrix and plot
+# 4. get the plots - the two heatmaps for now
+#
+#
 ########################################
 # 0. Initials 
 ########################################
@@ -18,7 +21,6 @@ import pandas as pd
 import subprocess as sp
 import seaborn as sns
 import matplotlib.pyplot as plt
-# TODO: not sure if it works
 from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
 
 # General data folder
@@ -131,6 +133,42 @@ for sampleFolder in sample_folder_list:
         else:
             chmmFile_dict[sampleFolder] = 'none'
 
+####################################################
+# just correcting the chmmFile list
+####################################################
+inputFile = dataFolder + dataSubFolder + 'chmmFile_list_dict_obsolete.pkl'
+with open(inputFile, 'rb') as f:
+    chmmFile_dict_obsolete = pickle.load(f)
+            
+chmmFile_dict_corrected = {}
+count = 0
+for sampleFolder in sampleFolder_list: # for each sample
+
+
+    #sampleFolder = sampleFolder_list[count]
+    print(sampleFolder)
+
+    chmmFile = chmmFile_dict_obsolete[sampleFolder]
+    print(chmmFile)
+    
+    if chmmFile.endswith('.gz'):
+        print('it ended with .gz')
+        chmmFileCorrected = chmmFile[:-3]
+
+        print(chmmFileCorrected)
+
+        #command = 'mv %s %s' %(chmmFile, chmmFileCorrected)
+        #os.system(command)
+
+        chmmFile_dict_corrected[sampleFolder] = chmmFileCorrected
+
+    else:
+        chmmFile_dict_corrected[sampleFolder] = chmmFile
+
+    print(count)
+    count +=1
+    
+chmmFile_dict = chmmFile_dict_corrected
 outputFile = dataFolder + dataSubFolder + 'chmmFile_list_dict.pkl'
 with open(outputFile, 'wb') as f:
     pickle.dump(chmmFile_dict, f)
@@ -138,6 +176,10 @@ with open(outputFile, 'wb') as f:
 #########################################    
 # 2. Get the summary info for each chrom file (but we dont need it now)
 #########################################
+
+inputFile = dataFolder + dataSubFolder + 'chmmFile_list_dict.pkl'
+with open(inputFile, 'rb') as f:
+    chmmFile_dict = pickle.load(f)
 
 from QC_transcriptionComparison_util import *
 # TODO: fix a problem: when calling the function annotation_generalInfo_classes_chmm from QC_ranscriptionComparison_util, it gives an error that name 'pickle' is not defined. I don't know how to fix this. I tried importing the pickle in the util file or even within the function, it doesn't work. for now, I just run the function first (instead of calling it from here and expecting it to read it from the file, I just compile it once and then run the following code. It works, but I need to fix the problem) - I BELIEVE it should be enough to import it in the QC_transcriptionComparison_util, and then import this. 
@@ -166,8 +208,11 @@ inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
 with open(inputFile, 'rb') as f:
     annMeta = pickle.load(f)
 
-# for each sample
-for sampleFolder in sampleFolder_list:
+count = 0
+for sampleFolder in sampleFolder_list: # for each sample
+
+    print(count)
+    count += 1
 
     '''
     1. get the segway stuff: cluster list, annotation file name
@@ -181,7 +226,7 @@ for sampleFolder in sampleFolder_list:
     segway_ann_sum_file = dataFolder + dataSubFolder + sampleFolder + '/' + originalBed_accession + '_annotationSummary.pkl'
 
     # get the segway annotation summary file
-    with open(segway_ann_summ_file, 'rb') as pickledFile:
+    with open(segway_ann_sum_file, 'rb') as pickledFile:
         segway_anns = pickle.load(pickledFile)
 
     segway_cluster_list = list(segway_anns['clusters'].keys())
@@ -209,8 +254,8 @@ for sampleFolder in sampleFolder_list:
     if chmmFile == 'none':
         continue
 
-    if chmmFile.endswith('.gz'):
-        chmmFile = chmmFile[:-3]
+    #if chmmFile.endswith('.gz'):
+    #    chmmFile = chmmFile[:-3]
 
     '''
     3. we have both chmmFile and segwayFile, so we can move on to comparison
@@ -219,6 +264,12 @@ for sampleFolder in sampleFolder_list:
     
     print(segwayFile)
     print(chmmFile)
+
+    segwayAccession = re.search('ENCFF.*_', segwayFile)[0][:-1]
+    chmmAccession = re.search('ENCFF.*\.', chmmFile)[0][:-1]
+
+    print(segwayAccession)
+    print(chmmAccession)
 
     segway_cluster_count = len(segway_cluster_list)
     chmm_class_count = len(chmm_class_list)
@@ -233,7 +284,7 @@ for sampleFolder in sampleFolder_list:
     send = int(sfields[2])
 
     chmmLineInd = 1
-    chmmLine = linecache.getline(sortedCmmFile, chmmLineInd)
+    chmmLine = linecache.getline(chmmFile, chmmLineInd)
     cfields = chmmLine.split()
     cchr = cfields[0]
     cstart = int(cfields[1])
@@ -243,7 +294,7 @@ for sampleFolder in sampleFolder_list:
     while cchr != 'chr22' and schr != 'chr22': # while not at the end
 
         #print(chmmLineInd)
-
+        #print(segwayLineInd)
         if cchr == schr: # if we are in the same chromosome
             current_chr = schr
             overlap = min(send, cend) - max(sstart, cstart)
@@ -264,7 +315,7 @@ for sampleFolder in sampleFolder_list:
                 else:
                     if cend < send:
                         chmmLineInd += 1
-                        chmmLine = linecache.getline(sortedCmmFile, chmmLineInd)
+                        chmmLine = linecache.getline(chmmFile, chmmLineInd)
                         cfields = chmmLine.split()
                         cchr = cfields[0]
                         cstart = int(cfields[1])
@@ -272,7 +323,7 @@ for sampleFolder in sampleFolder_list:
 
                     else: # cend == send:
                         chmmLineInd += 1
-                        chmmLine = linecache.getline(sortedCmmFile, chmmLineInd)
+                        chmmLine = linecache.getline(chmmFile, chmmLineInd)
                         cfields = chmmLine.split()
                         cchr = cfields[0]
                         cstart = int(cfields[1])
@@ -287,6 +338,7 @@ for sampleFolder in sampleFolder_list:
 
             else: # else : if overlap <= zero
                 while cstart > send and schr == cchr: # if at the beginning of chromosome, chmm is missing bps - I know segway won't be missing basepairs : if overlap < 0
+                    #print('here')
                     segwayLineInd += 1
                     segLine = linecache.getline(segwayFile, segwayLineInd)
                     sfields = segLine.split()
@@ -296,7 +348,7 @@ for sampleFolder in sampleFolder_list:
 
                 if overlap == 0:
                     chmmLineInd += 1
-                    chmmLine = linecache.getline(sortedCmmFile, chmmLineInd)
+                    chmmLine = linecache.getline(chmmFile, chmmLineInd)
                     cfields = chmmLine.split()
                     cchr = cfields[0]
                     cstart = int(cfields[1])
@@ -312,6 +364,7 @@ for sampleFolder in sampleFolder_list:
 
         else: # one of them has moved forward, so the next should read until it reaches it 
             while schr == current_chr:
+                #print('there')
                 segwayLineInd += 1
                 segLine = linecache.getline(segwayFile, segwayLineInd)
                 sfields = segLine.split()
@@ -319,25 +372,37 @@ for sampleFolder in sampleFolder_list:
                 sstart = int(sfields[1])
                 send = int(sfields[2])
 
-            while schr == current_chr:
+            while cchr == current_chr:
                 chmmLineInd += 1
-                chmmLine = linecache.getline(sortedCmmFile, chmmLineInd)
+                chmmLine = linecache.getline(chmmFile, chmmLineInd)
                 cfields = chmmLine.split()
                 cchr = cfields[0]
                 cstart = int(cfields[1])
                 cend = int(cfields[2])
 
-        linecache.clearcache()
-
+    linecache.clearcache()
         
         # save the matrix - keep the count
 
-        # do the plots, here or in some other loop
+    overlap_df = pd.DataFrame(overlap_mat, index = segway_cluster_list, columns = chmm_class_list)
+
+    outputFileName = 'overlap_segway_%s_chmm_%s.pkl' %(segwayAccession, chmmAccession)
+    outputFile = dataFolder + dataSubFolder + sampleFolder + '/' + outputFileName
+    with open(outputFile, 'wb') as f:
+        pickle.dump(overlap_df, f)
+
 
 #########################################
+# 4. get the plots - the heatmaps for overlap matrix
+#########################################
+
+# for each file load the matrix and the heatmap -
+
+# the plot can be made with the background percentage of overlap as normalization. Can we tell who is favoring who? I need a panel of plots for each thing, also the track value plots.
+
+# but perhaps we need another plot for the values. Just to get the outcome. 
 
 # TODO : first I do segway label correction and then I do the overlap thing. For the Segway label correction I also do it with the ccre 
-
 ######
 # for each sample folder, fetch the chmm, fetch the segway, fix the chmm
 
