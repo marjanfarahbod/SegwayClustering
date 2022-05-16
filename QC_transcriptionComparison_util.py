@@ -225,7 +225,7 @@ def annotation_generalInfo_clusters(bedFileAdd):
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # this is for chmm
 # chmm has no cluster, we only have class data
-
+ 
 import pickle
 
 def annotation_generalInfo_classes_chmm(bedFileAdd):
@@ -269,6 +269,56 @@ def annotation_generalInfo_classes_chmm(bedFileAdd):
                     classes[biolabel] = AnnotationClass(biolabel, clusterList, color, bp_count, region_count, region_dist)
 
             previous_class = fields[3]
+
+    annotationSummary = {"classes": classes}
+    outputFile = outputFolder + bedFileName + '_annotationSummary.pkl'
+    with open(outputFile, 'wb') as f:
+        pickle.dump(annotationSummary, f)
+
+    print('annotation summary saved in %s' %(outputFile))
+
+
+# function for the ccre
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ 
+import pickle
+
+def annotation_generalInfo_classes_ccre(bedFileAdd):
+
+    splitFileName = bedFileAdd.split('/')
+    bedFileName = splitFileName[-1].split('.')[0]
+    index = bedFileAdd.index(bedFileName)
+    outputFolder = bedFileAdd[0:index]
+
+    previous_class = ''
+
+    classes = {}
+    c = 0
+    with open(bedFileAdd, 'r') as annotations:
+
+        # annotations have no header
+        # header = annotations.readline()
+
+        f = open(bedFileAdd, 'r') # >>>> test
+        line = f.readline() # >>>> test
+        
+        for line in annotations:
+            c += 1
+            fields = line.strip().split()
+
+            # doing the class 
+            current_class = fields[9]
+            if current_class in classes.keys():
+                classes[current_class].bp_count +=  int(fields[2]) - int(fields[1])
+                classes[current_class].region_count += 1
+            else:
+                clusterList = [] # doesn't apply
+                biolabel = current_class
+                color = fields[8]
+                bp_count = int(fields[2]) - int(fields[1])
+                region_count = 1
+                region_dist = 1
+                classes[biolabel] = AnnotationClass(biolabel, clusterList, color, bp_count, region_count, region_dist)
 
     annotationSummary = {"classes": classes}
     outputFile = outputFolder + bedFileName + '_annotationSummary.pkl'
