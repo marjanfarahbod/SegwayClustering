@@ -398,6 +398,183 @@ for sampleFolder in sampleFolder_list: # for each sample
 
 # for each file load the matrix and the heatmap -
 
+for sampleFolder in sampleFolder_list:
+    
+    # load the overlap dataframe
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/' 
+    fileList = list(glob.iglob(sampleFolderAdd + 'overlap_segway_*_chmm_*.pkl', recursive = True))
+    inputFile = fileList[0]
+
+    with open(inputFile, 'rb') as f:
+        overlap_df = pickle.load(f)
+
+    # do the normalization:
+    # sum of each column or row will be the total bp for chmm/segway. total sum of columns should equal total soum of rows.
+    overlap_mat = overlap_df.to_numpy()
+
+    # total bp count that is covered by both annotations
+    total_bp = np.sum(overlap_mat)
+
+    # fraction of base pairs in each label to the total bp count
+    chmm_labelFraction = np.sum(overlap_mat, axis = 0) / total_bp
+    segway_labelFraction = np.sum(overlap_mat, axis = 1) / total_bp
+
+    # get the observed versus the expected fraction
+    expectedFraction_mat = np.zeros(overlap_mat.shape)
+    for i in range(len(segway_labelFraction)):
+        for j in range(len(chmm_labelFraction)):
+            expectedFraction_mat[i][j] = segway_labelFraction[i] * chmm_labelFraction[j]
+
+    observedFraction_mat = np.zeros(overlap_mat.shape)
+    for i in range(len(segway_labelFraction)):
+        for j in range(len(chmm_labelFraction)):
+            observedFraction_mat[i][j] = overlap_mat[i][j] / total_bp
+
+    obs_exp = np.divide(observedFraction_mat, expectedFraction_mat)
+
+    # get the normalized value
+    overlap_mat_colNorm = overlap_mat / np.sum(overlap_mat, axis=0)[np.newaxis, :] # chmm
+    overlap_mat_rowNorm = overlap_mat / np.sum(overlap_mat, axis=1)[:, np.newaxis] # segway
+
+    # get the axis labels
+    segway_cluster_list = list(overlap_df.index.values)
+    chmm_class_list = list(overlap_df.columns.values)
+
+    # add the ratio to the axis labels
+    segwayAxis_list = []
+    for i, cluster in enumerate(segway_cluster_list):
+        segwayAxis_list.append(cluster + '_' + str(round(segway_labelFraction[i], 4)))
+
+    chmmAxis_list = []
+    for i, chmmclass in enumerate(chmm_class_list):
+        chmmAxis_list.append(chmmclass + '_' + str(round(chmm_labelFraction[i], 4)))
+
+    # plot the three heatmaps
+
+    fig, axs = plt.subplots(2, 2, figsize=(12,8))
+    
+    # heatmap 1: the observed over expected ratio
+    h1 = pd.DataFrame(np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0)), index = segwayAxis_list, columns = chmmAxis_list)
+    #cmap = sns.diverging_palette(240, 10, s=100, l=30, as_cmap=True)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g1 = sns.heatmap(h1, center = 0,cmap=cmap, ax=axs[0,0])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g1.set_title('ratio - observed vs expected')
+    #g1.set_xticklabels(g1.get_xticklabels(), rotation=45)
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+    #plt.title('ratio - observed vs expected')
+    plt.show()
+
+    # h2: the segway ratio covered
+    h2 = pd.DataFrame(overlap_mat_rowNorm, index = segwayAxis_list, columns = chmmAxis_list)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g2 = sns.heatmap(h2, center = 0,cmap=cmap, ax=axs[0,1])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g2.set_title('ratio of bp overlap - Segway')
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+    plt.show()
+
+    # h3: track average signal (for the tracks in the thing only)
+    # get the mapping from the cluster label , get the mapping from track assay, build the matrix and do the meeting
+    mapping_file = sampleFolderAdd + 'trackname_assay.txt'
+    signal_file = sampleFolderAdd + 'signal_distribution.tab.txt'
+
+    # read the mapping_file
+    track_assay_map = {}
+    inputTrack_list = [] # list of the track type for the sample 
+    with open(mapping_file) as inputFile:
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            inputTrack_list.append(fields[1])
+
+    # getting the segway input track count
+    segway_track_count = 0
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline().split()[0]
+        previousCluster_int = inputFile.readline().split()[0]
+        cluster_int = previousCluster_int
+        while previousCluster_int == cluster_int:
+            previousCluster_int = cluster_int
+            cluster_int = inputFile.readline().split()[0]
+            segway_track_count += 1
+
+    
+    cluster_class_map = {}
+    for cluster_label in segway_cluster_list:
+        int_label = cluster_label.split('_')[0]
+        cluster_class_map[int_label] = cluster_label
+
+
+    # filling the signal_dist_mat for the plot 
+    signal_dist_mat = np.zeros((segway_track_count, len(segway_cluster_list)))
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline()
+        for line in inputFile:
+            fields = line.strip().split()
+            track = track_assay_map[fields[1]]
+            track_ind = inputTrack_list.index(track) # track list order
+            segway_cluster = cluster_class_map[fields[0]]
+            cluster_ind = segway_cluster_list.index(segway_cluster) # cluster list order
+            signal_dist_mat[track_ind][cluster_ind] = round(float(fields[2]), 4)
+    
+
+    # make the dataframe
+    h3 = pd.DataFrame(signal_dist_mat, index = inputTrack_list, columns = segway_cluster_list)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g3 = sns.heatmap(h3, center = 0,cmap=cmap, ax=axs[1,1])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g3.set_title('mean track value')
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+    plt.show()
+    
+
+    # h4: probs for each segway label
+    probs_file = sampleFolderAdd + 'probs.txt'
+    h4 = pd.read_table(probs_file)
+    h4.drop('label', inplace=True, axis=1)
+    for int_label in list(cluster_class_map.keys()):
+        h4.rename(index={int(int_label) : cluster_class_map[int_label]}, inplace=True)
+
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g4 = sns.heatmap(h4, center = 0,cmap=cmap, ax=axs[1,1])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g4.set_title('probs - classifier')
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+    plt.show()
+
+    
+    # H: a whole other plot for total track values? 
+    
+    book = pd.DataFrame(overlap_mat_rowNorm, index = segway_cluster_list, columns = chmm_class_list)
+    book = pd.DataFrame(overlap_mat_colNorm, index = segway_cluster_list, columns = chmm_class_list)
+    sns.heatmap(book)
+    plt.ylabel('segway')
+    plt.ylabel('chmm')
+    plt.title('segway ratios')
+    plt.show()
+
+    # plot the probs and the heatmap of comparison
+
+    # add the count and other info
+    
+
 # the plot can be made with the background percentage of overlap as normalization. Can we tell who is favoring who? I need a panel of plots for each thing, also the track value plots.
 
 # but perhaps we need another plot for the values. Just to get the outcome. 
