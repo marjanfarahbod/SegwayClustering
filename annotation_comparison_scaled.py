@@ -21,6 +21,7 @@ import pandas as pd
 import subprocess as sp
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy import stats
 from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
 
 # General data folder
@@ -460,7 +461,7 @@ for sampleFolder in sampleFolder_list:
     g1 = sns.heatmap(h1, center = 0,cmap=cmap, ax=axs[0,0])
     #g1.set_ylabel('this')
     #g1.set_xlabel('that')
-    g1.set_title('ratio - observed vs expected')
+    g1.set_title('ratio - log (observed to expected)')
     #g1.set_xticklabels(g1.get_xticklabels(), rotation=45)
     #plt.ylabel('segway')
     #plt.ylabel('chmm')
@@ -480,6 +481,7 @@ for sampleFolder in sampleFolder_list:
     #plt.ylabel('chmm')
     #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
     plt.tight_layout()
+    
     plt.show()
 
     # h3: track average signal (for the tracks in the thing only)
@@ -515,7 +517,7 @@ for sampleFolder in sampleFolder_list:
 
 
     # filling the signal_dist_mat for the plot 
-    signal_dist_mat = np.zeros((segway_track_count, len(segway_cluster_list)))
+    signal_dist_mat = np.zeros((len(segway_cluster_list), segway_track_count))
     with open(signal_file, 'r') as inputFile:
         header = inputFile.readline()
         for line in inputFile:
@@ -524,16 +526,17 @@ for sampleFolder in sampleFolder_list:
             track_ind = inputTrack_list.index(track) # track list order
             segway_cluster = cluster_class_map[fields[0]]
             cluster_ind = segway_cluster_list.index(segway_cluster) # cluster list order
-            signal_dist_mat[track_ind][cluster_ind] = round(float(fields[2]), 4)
-    
+            signal_dist_mat[cluster_ind][track_ind] = round(float(fields[2]), 4)
+            
+    z_signal_dist_mat = stats.zscore(signal_dist_mat, axis = 0)
 
     # make the dataframe
-    h3 = pd.DataFrame(signal_dist_mat, index = inputTrack_list, columns = segway_cluster_list)
+    h3 = pd.DataFrame(z_signal_dist_mat, index = segway_cluster_list, columns = inputTrack_list)
     cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
-    g3 = sns.heatmap(h3, center = 0,cmap=cmap, ax=axs[1,1])
+    g3 = sns.heatmap(h3, center = 0,cmap=cmap, ax=axs[1,0])
     #g1.set_ylabel('this')
     #g1.set_xlabel('that')
-    g3.set_title('mean track value')
+    g3.set_title('mean track value - zscore')
     #plt.ylabel('segway')
     #plt.ylabel('chmm')
     #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
@@ -542,12 +545,18 @@ for sampleFolder in sampleFolder_list:
     
 
     # h4: probs for each segway label
+    fig, axs = plt.subplots(2, 2, figsize=(12,8))
+
+    # reorder the dataframe 
+    
     probs_file = sampleFolderAdd + 'probs.txt'
     h4 = pd.read_table(probs_file)
     h4.drop('label', inplace=True, axis=1)
     for int_label in list(cluster_class_map.keys()):
         h4.rename(index={int(int_label) : cluster_class_map[int_label]}, inplace=True)
 
+    h4 = h4.reindex(index = segway_cluster_list)
+    h4 = h4.reindex(columns = segwayLabels[0:8])
     cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
     g4 = sns.heatmap(h4, center = 0,cmap=cmap, ax=axs[1,1])
     #g1.set_ylabel('this')
