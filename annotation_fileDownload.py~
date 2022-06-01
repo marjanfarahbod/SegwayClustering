@@ -1,0 +1,72 @@
+# This is the code to get the annotation files
+# Here, we have a file with a list of annotation accession and .tab files where the download link for each of the files exists.
+
+########################################
+# 0. Initials 
+########################################
+
+import urllib
+import linecache
+import pickle
+import re
+import numpy as np
+import pandas as pd
+import subprocess as sp
+import seaborn as sns
+import matplotlib.pyplot as plt
+from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
+
+# General data folder
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+dataSubFolder = 'testBatch105/fromAPI/'
+
+
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as pickledFile:
+    annMeta = pickle.load(pickledFile)
+
+sampleFolder_list = list(annMeta.keys())
+
+fileList = list(glob.iglob(dataFolder + dataSubFolder + 'croo_may_16_2022/*.tsv'))
+# get all the .tsv files
+
+
+# from the html files, get the download links and the workflow_id
+
+# the file with list of samples to identifiers
+accession_ID_file = dataFolder + dataSubFolder + 'Jan_segway_runs_Paul - Detailed table.tsv'
+
+identifier_sample_map = {}
+with open(accession_ID_file, 'r') as inputFile:
+    line = inputFile.readline()
+    for line in inputFile:
+        fields  = line.strip().split()
+        identifier_sample_map[fields[0]] = fields[1]
+
+
+c = 0
+for file in fileList:
+    identifier = file.split('.')[-2]
+    if identifier in list(identifier_sample_map.keys()):
+        accession = identifier_sample_map[identifier]
+        downloadFile = dataFolder + dataSubFolder + accession + '/probs.txt'
+
+        # open the file and pars the file for the line with the probs.txt
+
+        with open(file, 'r') as addressFile:
+            for line in addressFile:
+                gs_link = line.strip().split('\t')[1]
+                #print(gs_link[-4:])
+                if gs_link.endswith('probs.txt'):
+                    url = line.strip().split('\t')[2]
+                    # download the probs file to its folder
+                    urllib.request.urlretrieve(url, downloadFile)
+                    c += 1
+                    print(c)
+                    print(accession)
+                    
+
+        
+
+

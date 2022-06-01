@@ -219,6 +219,35 @@ for accession in annotations_IDlist:
                     f.write(r.content)
 
 
+########################################
+# 4. get the tissue label or smth
+########################################
+
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as pickledFile:
+    annMeta = pickle.load(pickledFile)
+
+sampleFolder_list = list(annMeta.keys())
+
+c = 0
+tissue_info = {}
+for accession in sampleFolder_list:
+    print(c)
+    print(accession)
+    c += 1
+    
+    url = 'https://www.encodeproject.org/annotations/%s/?format=json' %(accession)
+    response = requests.get(url, cookies=cookies, headers=headers)
+    jsonData = response.json()
+    
+    termName_id_list = [jsonData['biosample_ontology']['term_name'], jsonData['biosample_ontology']['@id']]
+    tissue_info[accession] = termName_id_list
+        
+outputFile = dataFolder + dataSubFolder + 'biosample_tissue_info.pkl'
+with open(outputFile, 'wb') as f:
+    pickle.dump(tissue_info, f)
+
+
 ##################################################
 # DRAFT
 ##################################################

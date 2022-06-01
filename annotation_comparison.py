@@ -2,7 +2,7 @@
 
 # TODO: write the annotation summary function for chmm - done
 # TODO: write the annotation overlap - done
-# TODO: in QC_transcriptionComparison_util.py, fix the annotation_generalInfo_clusters() for calling, if needed, the main one is currently in the QC_transcriptionComparison_02.py. 
+# TODO: in QC_transcriptionComparison_util.py, fix the annotation_generalInfo_clusters() for calling, if needed, the main one is currently in the QC_transcriptionComparison_02.py 
 # TODO: do the same for ccre
 
 ########################################
@@ -260,9 +260,12 @@ chmm_class_list
 book = pd.DataFrame(overlap_mat_rowNorm, index = segway_cluster_list, columns = chmm_class_list)
 book = pd.DataFrame(overlap_mat_colNorm, index = segway_cluster_list, columns = chmm_class_list)
 sns.heatmap(book)
+plt.ylabel('segway')
+plt.ylabel('chmm')
+plt.title('segway ratios')
 plt.show()
 
-figFile = dataFolder + dataSubFolder + annAccession + '/exp2class_heatmap.pdf'
+figFile = dataFolder + dataSubFolder + '/temp_testplot_02.pdf'
 plt.savefig(figFile)
 plt.close('all')
 
