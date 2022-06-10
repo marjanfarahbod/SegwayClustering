@@ -13,6 +13,7 @@ from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationCl
 
 # open the folder and look up the stuff
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/testBatch105/'
 
 dataSubFolder = 'testBatch105/fromAPI/'
 
@@ -24,6 +25,19 @@ segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed',
     
 # 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+inputFile = dataFolder + dataSubFolder + 'biosample_tissue_info.pkl'
+with open(inputFile, 'rb') as f:
+    tissue_info = pickle.load( f)
+
+# GTF data structure
+fileName = dataFolder + '/geneLists.pkl'
+with open(fileName, 'rb') as pickleFile:
+    geneListsAndIDs = pickle.load(pickleFile)
+    
+geneList = geneListsAndIDs[0]
+geneIDList = geneListsAndIDs[1]
+del geneListsAndIDs
 
 annAccessionList = list(annMeta.keys())
 
@@ -40,6 +54,7 @@ for annAccession in annAccessionList:
             expMat = pickle.load(f)
     except FileNotFoundError:
         print('no transcript data for this file')
+        continue
 
     # plot the expmat
 
@@ -74,7 +89,23 @@ for annAccession in annAccessionList:
         total_bp += clusters[cluster].bp_count
 
     fractions = fractions / total_bp
- 
+
+    # get the header: count of genes expressed zero, low and med/high
+    expFileName = annMeta[annAccession]['expressionFile']
+    expAccession = re.split('_|\.', expFileName)[2]
+    inputFile = dataFolder + dataSubFolder + annAccession + '/geneExp_dict_' + expAccession + '.pkl'
+    print(inputFile)
+    with open(inputFile, 'rb') as pickledFile:
+        expression = pickle.load(pickledFile)
+
+    # get the list of gene IDs
+    
+    allExp = [expression[x] for x in geneIDList]
+    zeroExpCount = sum(i == 0 for i in allExp)
+    lowMedExpCount = sum(i > 0 and i < 1 for i in allExp)
+    highExpCount = sum(i > 1 for i in allExp)
+
+
     fig, axs = plt.subplots(1, 3, figsize =(12, 6), gridspec_kw={'width_ratios':[1,1,1.2]})
     xticks = [30, 130]
     xticklabels = ['TSS', 'end']
@@ -94,6 +125,7 @@ for annAccession in annAccessionList:
     g1.set_xticks(xticks)
     #sns.despine(fig=None, ax=None, top=False, right=False, left=False, bottom=False, offset=None, trim=False)
     g1.hlines(np.linspace(1,clusterCount, clusterCount), *g1.get_xlim(), color = 'grey')
+    g1.set_title('zero expression\n %d genes' %(zeroExpCount), fontsize = 10)
 
     #plt.show()
 
@@ -111,6 +143,7 @@ for annAccession in annAccessionList:
     g2 = sns.heatmap(h2, center=0, cmap=cmap, vmin=-2, vmax=2,  ax=axs[1], cbar=False, yticklabels=False, xticklabels=xticklabels)
     g2.set_xticks(xticks)
     g2.hlines(np.linspace(1,clusterCount, clusterCount), *g1.get_xlim(), color = 'grey')
+    g2.set_title('low or medium expression\n %d genes' %(lowMedExpCount), fontsize = 10)
 
     # heatmap 3: the high expressed
     thisMat = expMat['clusterMats'][2]
@@ -126,11 +159,17 @@ for annAccession in annAccessionList:
     g3 = sns.heatmap(h3, center=0, cmap=cmap, vmin=-2, vmax=2,  ax=axs[2], yticklabels=False, xticklabels=xticklabels)
     g3.set_xticks(xticks)
     g3.hlines(np.linspace(1,clusterCount, clusterCount), *g1.get_xlim(), color = 'grey')
-    
-    plt.show()
+    g3.set_title('high expression \n %d genes' %(highExpCount), fontsize = 10)
 
+    fig.suptitle(annAccession + ' - ' + tissue_info[annAccession][0] + ' - ' + tissue_info[annAccession][1], fontsize = 12)
 
-    # todo: get the count of genes as expressed, low expressed and high expressed
+    # plt.show()
+    plotFolder_add = plotFolder + annAccession + '/'
+    figFile = plotFolder_add + 'expression_transcript.pdf'
+    print(figFile)
+    plt.savefig(figFile)
+    plt.close('all')
+
 
      
 
