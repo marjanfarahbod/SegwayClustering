@@ -1,6 +1,12 @@
 # this is the code to get the necessary data for the 105 test samples
+# 0. Initials
+# 1. Get the annotation list and make folders
+# 1.1 get results of the annotation list
+# 2. Get the RNA-seq files
+# 3. Get the rest of files
+# 4. get the tissue label or smth
 #
-# pre-code stuff:
+# pre-code notes:
 # 1. loging to the page for the samples. DONE
 # 2. get JSON view. DONE
 #
