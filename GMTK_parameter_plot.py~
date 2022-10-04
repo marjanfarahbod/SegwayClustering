@@ -1,0 +1,30 @@
+# for each sample, get the gmtk file,
+
+# get the track mappings,
+
+
+runID_file = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/testBatch105/' + 'runID_accession_map_105run.pkl'
+
+with open(runID_file, 'rb') as pickledFile:
+    runID_accession = pickle.load(pickledFile)
+
+accession_runID = {}
+for runID in list(runID_accession.keys()):
+    ac = runID_accession[runID]
+    accession_runID[ac] = runID
+
+#########################################    
+index = 79
+
+ann = ann_info_list[index]
+annAccession = ann['accession']
+print(annAccession)
+
+runID = accession_runID[annAccession]
+
+segtools_add = dataFolder + 'testBatch105/all_segtools/' + runID
+print(segtools_add)
+
+plots_add = plotFolder + annAccession
+print(plots_add)
+

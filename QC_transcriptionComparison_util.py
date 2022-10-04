@@ -139,11 +139,12 @@ class Intron(object): # introns don't have ID, but just identified by exon_end+1
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # this is for Segway
+
 def annotation_generalInfo_clusters(bedFileAdd):
 
     splitFileName = bedFileAdd.split('/')
     bedFileName = splitFileName[-1].split('.')[0]
-    index = bedFileAdd.index(bedFileName)
+    index = bedFileAdd.index(bedFileName + '.bed')
     outputFolder = bedFileAdd[0:index]
 
     previous_class = ''
@@ -215,6 +216,78 @@ def annotation_generalInfo_clusters(bedFileAdd):
         clusters[cluster].region_dist = info
 
     annotationSummary = {"classes": classes, "clusters": clusters}
+    outputFile = outputFolder + bedFileName + '_annotationSummary.pkl'
+    with open(outputFile, 'wb') as f:
+        pickle.dump(annotationSummary, f)
+
+    print('annotation summary saved in %s' %(outputFile))
+
+########################################################
+# this is for Segway
+def annotation_generalInfo_clusters_noclass(bedFileAdd):
+
+    splitFileName = bedFileAdd.split('/')
+    bedFileName = splitFileName[-1].split('.')[0]
+    index = bedFileAdd.index(bedFileName + '.bed')
+    outputFolder = bedFileAdd[0:index]
+
+
+    previous_class = ''
+
+    clusters = {}
+    c = 0
+
+    # get count of header lines:
+    print('header fix ...')
+    headerCount = 0
+    with open(bedFileAdd, 'r') as annotations:
+        line = annotations.readline()
+        fields = line.strip().split()
+        while fields[0] != 'chr1':
+            headerCount += 1
+            line = annotations.readline()
+            fields = line.strip().split()
+
+    with open(bedFileAdd, 'r') as annotations:
+
+        print('getting the annotation summary...')
+
+        # annotations have no header
+        # header = annotations.readline()
+
+#        f = open(bedFileAdd, 'r')
+#        line = f.readline()
+
+        # removing headers:
+
+        if headerCount > 0:
+            for i in range(headerCount):
+                line = annotations.readline()
+
+        print('starting the annotation ...')
+        for line in annotations:
+            
+            c += 1
+            fields = line.strip().split()
+
+            # doing the clusters first
+            if fields[3] in clusters.keys():
+
+                clusters[fields[3]].bp_count += int(fields[2]) - int(fields[1])
+                clusters[fields[3]].region_count += 1
+                
+            else:
+                
+                called = fields[3]
+                biolabel = 'none'
+                cluster = fields[3]
+                color = fields[8]
+                bp_count = int(fields[2]) - int(fields[1])
+                region_count = 1
+                region_dist = 1
+                clusters[fields[3]] = Annotation(called, biolabel, cluster, color, bp_count, region_count, region_dist)
+
+    annotationSummary = clusters
     outputFile = outputFolder + bedFileName + '_annotationSummary.pkl'
     with open(outputFile, 'wb') as f:
         pickle.dump(annotationSummary, f)

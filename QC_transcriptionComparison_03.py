@@ -323,7 +323,7 @@ for annAccession in annAccessionList:
         classes = summaryAnnotation['classes']
         clusters = summaryAnnotation['clusters']
         
-        # TODO: this part should ideally go to the annotation processing and class creation. but I think it is better to do it here regardless just to be sure
+        # Sorting the list of clusters TODO: this part should ideally go to the annotation processing and class creation. but I think it is better to do it here regardless just to be sure
         clusterList = list(clusters.keys())
         sortedClusterList = []
         #print(segwayLabels) # >>>> test
@@ -471,7 +471,7 @@ for annAccession in annAccessionList:
                 #print(annLineInd) # >>>> test
                 #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end)) # >>>> test
                 
-                annLineInd = annLineInd - 5
+                annLineInd = max(annLineInd - 5,1)
                 line = linecache.getline(annFile, annLineInd)
                 annLineInd +=1
                 ann_line_count += 1

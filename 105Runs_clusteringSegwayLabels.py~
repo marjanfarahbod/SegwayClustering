@@ -1,0 +1,672 @@
+# At this stage, we are not sure what classifier is doing and with classifier we have the barrier of training and training data. I want to know how do the samples look with regards to the values that go into the classifier. I also want to compare them to the transcript data report.
+
+# TODO:
+# 1. Do the clustering of the Segway labels using the Classifier input features, all of them.
+# 2. Add the Expression data to the plots, how does it look? How do you expect it to look?
+# 3. Now add the remaining track data (those not used in the classification) to the plot, how do they look?
+
+# code sections
+# 1. Get the meta info for the annotations
+# 2. The clustering with the classifier tracks only
+# 3. Plot for the transcriptomic data against the others
+
+# I want to get out of this: are there groupings that the classifier is missing? Basically, how can we confirm it is a training issue. Then, the real question is do we have different labels?
+
+
+# 1. Get the meta info for the annotations
+########################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import pickle
+from util import *
+
+# for all the samples, extract their value and cluster label and the sample ID
+
+# mapping Segway accession to a number - since the accession is too big or long, this I can do with that accession tissue thing.
+
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+dataSubFolder = 'testBatch105/fromAPI/'
+
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as f:
+    annMeta = pickle.load(f)
+
+inputFile = dataFolder + dataSubFolder + 'biosample_tissue_info.pkl'
+with open(inputFile, 'rb') as f:
+    tissue_info = pickle.load( f)
+
+sampleFolder_list = list(tissue_info.keys())
+
+# list of tracks that are used for classification
+classifier_tracks = ['H3K36me3', 'H3K27me3', 'H3K4me3', 'H3K9me3', 'H3K27ac', 'H3K4me1']
+
+# list of segway labels to the order that I like
+segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+# build the whole mat:
+
+# clusters by signal_dist, feature_aggregation, exp data, other tracks
+# gather all data for each annotation - we can do it in a dataframe
+ann_info_list = []
+ann_info = {}
+c = 0 
+for sampleFolder in sampleFolder_list:
+    print(sampleFolder)
+
+    info = {} # keeps the info for the annotations - it also has an index which is just 0-104 for the 105 runs
+    info['index'] = c
+    c = c+1
+    # load the overlap dataframe
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/'
+    mapping_file = sampleFolderAdd + 'trackname_assay.txt'
+    signal_file = sampleFolderAdd + 'signal_distribution.tab.txt'
+
+    originalBedFile = annMeta[sampleFolder]['bedFile']
+    originalBed_accession = originalBedFile.split('.')[0]
+
+    segway_ann_sum_file = dataFolder + dataSubFolder + sampleFolder + '/' + originalBed_accession + '_annotationSummary.pkl'
+
+    # get the segway annotation summary file
+    with open(segway_ann_sum_file, 'rb') as pickledFile:
+        segway_anns = pickle.load(pickledFile)
+
+    info['segway_anns'] = segway_anns
+    
+    segway_cluster_list = list(segway_anns['clusters'].keys())
+    # sorting the cluster labels for segway
+    sortedClusterList = []
+    for label in segwayLabels:
+        #print(label)
+        for item in segway_cluster_list:
+            #print(item)
+            if item.split('_')[1] == label:
+                sortedClusterList.append(item)
+
+    segway_cluster_list = sortedClusterList
+
+    # read the mapping file
+    track_assay_map = {}
+    inputTrack_list = []
+    with open(mapping_file) as inputFile:
+        print('I am here')
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            if (fields[1] in inputTrack_list):
+                print('here we are')
+            inputTrack_list.append(fields[1])
+
+    info['track_assay_map'] = track_assay_map
+    info['inputTrack_list'] = inputTrack_list
+
+    # getting the segway input track count
+    segway_track_count = 0
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline().split()[0]
+        previousCluster_int = inputFile.readline().split()[0]
+        cluster_int = previousCluster_int
+        while previousCluster_int == cluster_int:
+            previousCluster_int = cluster_int
+            cluster_int = inputFile.readline().split()[0]
+            segway_track_count += 1
+
+    print(segway_track_count)
+    print(len(inputTrack_list))
+    if not(segway_track_count==len(inputTrack_list)):
+        print('not equal')
+
+    # the above two are the same for all samples, meaning that tracks in singal_distribution and track_assay_map are the same
+
+    info['segway_track_count'] = segway_track_count
+
+    ann_info[sampleFolder] = info
+    info['accession'] = sampleFolder
+    ann_info_list.append(info)
+
+outputFileName = 'all_annInfo.pkl'
+outputFile = dataFolder + dataSubFolder + outputFileName
+with open(outputFile, 'wb') as f:
+    pickle.dump(ann_info, f)
+
+inputFileName = 'all_annInfo.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    ann_info = pickle.load(f)
+
+
+outputFileName = 'all_annInfo_list.pkl'
+outputFile = dataFolder + dataSubFolder + outputFileName
+with open(outputFile, 'wb') as f:
+    pickle.dump(ann_info_list, f)
+
+inputFileName = 'all_annInfo_list.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    ann_info_list = pickle.load(f)
+
+
+# 1.1 Some stat from tracks per sample
+# get the total different tracks in the data: 11
+# get the track count distriubtion for samples
+# get the count of samples for each track
+# done, below
+
+inputFileName = 'all_annInfo_list.pkl'
+inputFile = dataFolder + dataSubFolder + outputFileName
+with open(inputFile, 'rb') as f:
+    ann_info_list = pickle.load(f)
+
+
+unique_track_list = []
+for ann in ann_info_list:
+    ann_track_list = ann['track_assay_map'].values()
+    for track in ann_track_list:
+        if not(track in unique_track_list):
+            unique_track_list.append(track)
+
+
+track_counts = np.zeros(105)
+for i, ann in enumerate(ann_info_list):
+    track_counts[i] = ann['segway_track_count']
+
+
+sample_count_per_track = np.zeros(len(unique_track_list))
+for ann in ann_info_list:
+    ann_track_list = ann['track_assay_map'].values()
+    #book = np.zeros((len(unique_track_list)))
+    for track in ann_track_list:
+        i = unique_track_list.index(track)
+        #book[i] +=1
+        sample_count_per_track[i] += 1
+
+    print(book)
+
+fix, axs = plt.subplots(1, figsize=(6,4))
+plt.grid()
+plt.bar(range(11), sample_count_per_track)
+plt.ylim([15,110])
+plt.xticks(range(11))
+axs.set_xticklabels(unique_track_list, rotation=90)
+plt.tight_layout()
+plt.show()
+plotFolder_add = dataFolder + dataSubFolder
+figFile = plotFolder_add + 'sample_count_for_tracks.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+
+# 2. The clustering with the classifier tracks only
+########################################
+
+# build the whole matrix of cluster/track values, with the index label of the clusters
+
+# first get the segway tracks, then CTCF, DNase, ATAC-seq, EPS is last
+
+# then also get the feature-aggregation.
+
+segway_track_ordered = classifier_tracks
+segway_track_ordered.append('CTCF')
+segway_track_ordered.append('DNase-seq')
+segway_track_ordered.append('ATAC-seq')
+segway_track_ordered.append('POLR2A')
+segway_track_ordered.append('EP300')
+
+allSignalDist_mat = np.zeros((105*16, len(segway_track_ordered))) * np.nan # this one fills with index
+cluster_classCode = np.zeros(105*16)
+cluster_color = np.zeros((105*16, 3))
+asd_index = 0 # allSignalDist_mat row index
+allClusters_list = [] # this one just append
+print(allSignalDist_mat.shape)
+
+for ann in ann_info_list:
+
+    index = ann['index']
+    print(index)
+    sampleFolder =  ann['accession']
+
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/'
+    signal_file = sampleFolderAdd + 'signal_distribution.tab.txt'
+
+    # getting the segway input track count
+    segway_track_count = len(ann['track_assay_map'])
+
+
+    segway_cluster_list = list(ann['segway_anns']['clusters'].keys())
+    sortedClusterList = []
+    for label in segwayLabels:
+        #print(label)
+        for item in segway_cluster_list:
+            #print(item)
+            if item.split('_')[1] == label:
+                sortedClusterList.append(item)
+
+    segway_cluster_list = sortedClusterList
+
+    if len(segway_cluster_list)<16:
+        print('here')
+        print(len(segway_cluster_list))
+
+    
+    cluster_class_map = {}
+    for cluster_label in segway_cluster_list:
+        int_label = cluster_label.split('_')[0]
+        cluster_class_map[int_label] = cluster_label
+
+
+    track_assay_map = ann['track_assay_map']
+    signal_dist_mat = np.zeros((len(segway_cluster_list), len(segway_track_ordered))) * np.nan
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline()
+        for line in inputFile:
+            fields = line.strip().split()
+            track = track_assay_map[fields[1]]
+            track_ind = segway_track_ordered.index(track) # track list order
+            segway_cluster = cluster_class_map[fields[0]]
+            cluster_ind = segway_cluster_list.index(segway_cluster) # cluster list order
+            signal_dist_mat[cluster_ind][track_ind] = round(float(fields[2]), 4)
+
+            
+    # do it or not?
+    # z_signal_dist_mat = stats.zscore(signal_dist_mat, axis = 0)
+
+    # fill up the whole cluster list and the signal matrix
+    for cluster in segway_cluster_list:
+        index_cluster = '%d___%s' %(index, cluster)
+        allClusters_list.append(index_cluster)
+        #class_code = segwayLabels.index(cluster.split('_')[1])
+        #cluster_classCode[asd_index] = class_code
+        #color = list(map(int, ann['segway_anns']['clusters'][cluster].color.split(',')))
+        #cluster_color[asd_index,:] = np.array(color)
+        
+
+    for i in range(signal_dist_mat.shape[0]):
+        print(i)
+
+        #if math.isnan(signal_dist_mat[i, 0]):
+        #   print('ind: %d' %(asd_index))
+        allSignalDist_mat[asd_index,:] = signal_dist_mat[i,:]
+        cluster = segway_cluster_list[i]
+        class_code = segwayLabels.index(cluster.split('_')[1])
+        cluster_classCode[asd_index] = class_code
+        color = list(map(int, ann['segway_anns']['clusters'][cluster].color.split(',')))
+        cluster_color[asd_index,:] = np.array(color)
+        asd_index +=1
+
+allSignalDist_mat = allSignalDist_mat[0:asd_index,:]
+
+# do we have more tracks per sample
+# get it out by September - 
+
+# at the end of this loop, all is filled. Now we proceed to do the clustering        
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> working line
+
+# the original 16 features that go to the classifier - just keeping it here
+feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
+
+# getting the classifier features from the previous code:
+
+# TODO: do it for all samples
+# TODO: get the matrix of features with feature names
+
+allFeatureAgg_mat = np.zeros((105*16, 10)) # this one fills with index
+featureAgg_names = ["5' flanking (1-1000 bp)", "5' flanking (1000-10000 bp)", 'initial exon', 'initial intron', 'internal exons', 'internal introns', 'terminal exon', 'terminal intron', "3' flanking (1-1000 bp)", "3' flanking (1000-10000 bp)"]
+
+for ann in ann_info_list:
+
+    index = ann['index']
+    print(index)
+    sampleFolder =  ann['accession']
+
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/'
+
+    signal_file = sampleFolderAdd + 'signal_distribution.tab.txt'
+    feature_file = sampleFolderAdd + 'feature_aggregation.tab.txt'
+    mapping_file = sampleFolderAdd + 'trackname_assay.txt'
+    track_assay_map = {}
+    with open(mapping_file) as inputFile:
+        print('I am here')
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            inputTrack_list.append(fields[1])
+
+    ann_features, ann_label_bases, ann_feature_names = features_from_segtools_dir(feature_file, signal_file, track_assay_map)
+
+            
+
+# for each file, read it like this, change the order for the classifier 
+
+#TODO: get the color from the segway_ann for each cluster and do the colors - colors I got
+
+
+#TODO: add the heatmap of feature aggregation and check each -
+# each line in the feature aggregation: the third column in sthe position in the component (basepair), and the rest of the columns are count of occurence for each label 
+
+# get the feature aggregation - just getting it from the gencode_path
+gencode_path = sampleFolderAdd + 'feature_aggregation.tab.txt'
+
+sib, book = agg_parse(gencode_path)
+def agg_parse(file_path):
+    with open(file_path, 'r') as f:
+        header = f.readline().rstrip()
+        labels, label_names = agg_parse_header(header)
+        second_header = f.readline()
+        label_names = second_header.rstrip().split("\t")[3:]
+        #print(label_names) # for debug
+        #line = f.readline() # for debug
+        for line in f:
+            line_data = line.rstrip().split("\t")
+            group = line_data[0]
+            component = line_data[1]
+            offset = line_data[2]
+            label_counts = line_data[3:]
+            assert len(label_counts) == len(label_names)
+            #label_names = [ int(label_name) for label_name in label_names] # sort to match counts
+            #label_names.sort() # sort to match counts
+            #label_names = [ str(label_name) for label_name in label_names] # sort to match counts
+            for label_name, label_count in zip(label_names, label_counts):
+                labels[label_name].add_raw_count(component,int(label_count))
+    return labels, label_names
+
+
+class AggAnnotation:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.labels, self.label_names = agg_parse(file_path)
+        self.set_enrichment()
+    def __iter__(self):
+        return iter(self.labels.values())
+    def set_enrichment(self):
+        genome_bases = 0.0
+        component_sum_counts = {}
+        for label in self.labels:
+            genome_bases += self.labels[label].num_bases()
+            component_raw_counts = self.labels[label].raw_counts()
+            for component in component_raw_counts:
+                if component not in component_sum_counts:
+                    component_sum_counts[component] = numpy.zeros(len(component_raw_counts[component]))
+                component_sum_counts[component] += numpy.array(component_raw_counts[component])
+        for label in self.labels:
+            component_raw_counts = self.labels[label].raw_counts()
+            component_enrichment = {}
+            for component in component_raw_counts:
+                if component not in component_enrichment:
+                    component_enrichment[component] = []
+                for raw_count, sum_count in zip(component_raw_counts[component],component_sum_counts[component]):
+                    f_obs = ((raw_count + 1)/ sum_count)
+                    f_rand = (self.labels[label].num_bases() / genome_bases)
+                    enr  = math.log((f_obs/f_rand),2)
+                    component_enrichment[component].append(enr)
+            self.labels[label].set_enrichment(component_enrichment)
+    def enrichment(self,label_name,*args):
+        if len(args) == 0:
+            return self.labels[label_name].enrichment()
+        assert len(args) == 1
+        if args[0] == "components":
+            return self.labels[label_name].component_enrichments()
+        else:
+            return self.labels[label_name].enrichment(args[0])
+    def raw_enrichment(self,label_name,component):
+        return self.labels[label_name].raw_enrichment(component)
+    def get_labels(self):
+        return self.labels
+    def get_label_names(self):
+        return self.label_names
+
+def features_from_segtools_dir(gencode_path):
+    feature_names = set()
+    ann_features = {} # {label: {feature_name: val} }
+    ann_label_bases = {}
+    #celltype = ann["celltype"]
+    #dataset_key = ann["dataset_key"]
+    #concatenation_key = ann["concatenation_key"]
+    #gencode_path = summary_dirpath / "aggregation/GENCODE/feature_aggregation.tab"
+    #gencode_path = summary_dirpath / "feature_aggregation.tab"
+    gencode_labels = set()
+    gencode = AggAnnotation(gencode_path)
+    for label, gencode_label_info in gencode.labels.items():
+        print(label)
+        print(gencode_label_info)
+        
+        gencode_labels.add(label)
+        if not (label in ann_features):
+            ann_features[label] = {}
+        ann_label_bases[label] = gencode_label_info.num_bases() # get count of the bases 
+        for component_name, component_enrichments in gencode_label_info.component_enrichments().items():
+            print(component_name)
+            print(len(component_enrichments))
+            
+            if ("UTR" in component_name) or ("CDS" in component_name): continue
+            # Split 5' and 3' flanking regions into two parts. 
+            if component_name.startswith("5' flanking"):
+                feature_name = "5' flanking (1-1000 bp)"
+                feature_name = feature_name_map(feature_name)
+                ann_features[label][feature_name] = numpy.mean(component_enrichments[-int(0.1*len(component_enrichments)):])
+                feature_names.add(feature_name)
+                feature_name = "5' flanking (1000-10000 bp)"
+                feature_name = feature_name_map(feature_name)
+                ann_features[label][feature_name] = numpy.mean(component_enrichments[:-int(0.1*len(component_enrichments))])
+                feature_names.add(feature_name)
+            elif component_name.startswith("3' flanking"):
+                feature_name = "3' flanking (1-1000 bp)"
+                feature_name = feature_name_map(feature_name)
+                ann_features[label][feature_name] = numpy.mean(component_enrichments[:int(0.1*len(component_enrichments))])
+                feature_names.add(feature_name)
+                feature_name = "3' flanking (1000-10000 bp)"
+                feature_name = feature_name_map(feature_name)
+                ann_features[label][feature_name] = numpy.mean(component_enrichments[int(0.1*len(component_enrichments)):])
+                feature_names.add(feature_name)
+            else:
+                feature_name = feature_name_map(component_name)
+                ann_features[label][feature_name] = numpy.mean(component_enrichments)
+                feature_names.add(feature_name)
+            assert numpy.isfinite(ann_features[label][feature_name])
+    #for histone in histone_features:
+
+
+#TODO: add the heatmap of the transcript data (processed) to the plot
+
+# have the three plots: feature aggregation, transcript data.
+# cluster with/without each of the other two, compare clusters. Call labels and figure what is what. Include length too.
+# report and get it done with.
+
+# doing the clustering
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> example clustering
+import seaborn as sns
+
+pcc = 150 # plot cluster count
+myMat = allSignalDist_mat[0:pcc,0:6]
+myccc = cluster_classCode[0:pcc]
+colors = cluster_color[0:pcc,:] / 255
+df = pd.DataFrame(myMat, index = allClusters_list[0:pcc], columns = segway_track_ordered[0:6])
+df_trans = pd.DataFrame(myMat.transpose(), columns = allClusters_list[0:pcc], index = segway_track_ordered[0:6])
+
+#sns.heatmap(myMat)
+#plt.show()
+
+
+# the black lines are not zero, they are just very close to zero
+sns.clustermap(df_trans, figsize=(40,5), col_colors= colors)
+plt.show()
+
+
+
+from sklearn.cluster import AgglomerativeClustering
+
+
+myMat = allSignalDist_mat[0:200,0:6]
+clustering = AgglomerativeClustering(n_clusters=20, affinity='euclidean', linkage='complete').fit(myMat)
+
+
+from scipy.cluster.hierarchy import dendrogram
+from sklearn.datasets import load_iris
+from sklearn.cluster import AgglomerativeClustering
+
+
+def plot_dendrogram(model, **kwargs):
+    # Create linkage matrix and then plot the dendrogram
+
+    # create the counts of samples under each node
+    counts = np.zeros(model.children_.shape[0])
+    n_samples = len(model.labels_)
+    for i, merge in enumerate(model.children_):
+        current_count = 0
+        for child_idx in merge:
+            if child_idx < n_samples:
+                current_count += 1  # leaf node
+            else:
+                current_count += counts[child_idx - n_samples]
+        counts[i] = current_count
+
+    linkage_matrix = np.column_stack(
+        [model.children_, model.distances_, counts]
+    ).astype(float)
+
+    # Plot the corresponding dendrogram
+    dendrogram(linkage_matrix, **kwargs)
+
+
+iris = load_iris()
+X = iris.data
+
+X = myMat
+
+# setting distance_threshold=0 ensures we compute the full tree.
+model = AgglomerativeClustering(distance_threshold=0, n_clusters=None)
+ 
+model = model.fit(X)
+plt.title("Hierarchical Clustering Dendrogram")
+# plot the top three levels of the dendrogram
+plot_dendrogram(model, truncate_mode="level", p=9)
+plt.xlabel("Number of points in node (or index of point if no parenthesis).")
+plt.show()
+
+# Questions:
+# the train sample question - how many training actual value do we have? 
+# normalization for the train and test data: what do we use for feature and signal distribution
+# Why do we have zero Quiescent values
+# summarize the transcript data and add it to the plot (just find a cutting edge or something)
+# review and make the report 
+
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> draft line
+
+    info = {} # keeps the info for the annotations - it also has an index which is just 0-104 for the 105 runs
+    info['index'] = c
+    c = c+1
+    # load the overlap dataframe
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/'
+    mapping_file = sampleFolderAdd + 'trackname_assay.txt'
+    signal_file = sampleFolderAdd + 'signal_distribution.tab.txt'
+
+    originalBedFile = annMeta[sampleFolder]['bedFile']
+    originalBed_accession = originalBedFile.split('.')[0]
+
+    segway_ann_sum_file = dataFolder + dataSubFolder + sampleFolder + '/' + originalBed_accession + '_annotationSummary.pkl'
+
+    # get the segway annotation summary file
+    with open(segway_ann_sum_file, 'rb') as pickledFile:
+        segway_anns = pickle.load(pickledFile)
+
+    info['segway_anns'] = segway_anns
+    
+    segway_cluster_list = list(segway_anns['clusters'].keys())
+    # sorting the cluster labels for segway
+    sortedClusterList = []
+    for label in segwayLabels:
+        #print(label)
+        for item in segway_cluster_list:
+            #print(item)
+            if item.split('_')[1] == label:
+                sortedClusterList.append(item)
+
+    segway_cluster_list = sortedClusterList
+
+    # read the mapping file
+    track_assay_map = {}
+    inputTrack_list = []
+    with open(mapping_file) as inputFile:
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            inputTrack_list.append(fields[1])
+
+    info['track_assay_map'] = track_assay_map
+    info['inputTrack_list'] = inputTrack_list
+
+    # getting the segway input track count
+    segway_track_count = 0
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline().split()[0]
+        previousCluster_int = inputFile.readline().split()[0]
+        cluster_int = previousCluster_int
+        while previousCluster_int == cluster_int:
+            previousCluster_int = cluster_int
+            cluster_int = inputFile.readline().split()[0]
+            segway_track_count += 1
+
+    info['segway_track_count'] = segway_track_count
+
+    ann_info[sampleFolder] = info
+
+
+
+
+    ann_clusters = ann['segway_anns']['clusters']
+    for label in segwayLabels:
+        #print(label)
+        for cluster in ann_clusters:
+            #print(item)
+            if ann_clusters[cluster].biolabel == label:
+                index_cluster = '%d___%s' %(index, cluster)
+                allClusters_list.append(index_cluster)
+
+    segway_cluster_list = sortedClusterList
+
+
+# TODO: do the clustering for the 6 tracks and plot it against other track values and transcriptomic comparison
+
+# NEXT: come here after the classifier pipeline check: what happened to the segway training data - 
+
+########################################
+
+
+
+
+    cluster_class_map = {} # not sure why I need this 
+    for cluster_label in segway_cluster_list:
+        int_label = cluster_label.split('_')[0]
+        cluster_class_map[int_label] = cluster_label
+
+    # filling the signal_dist_mat for the plot 
+    signal_dist_mat = np.zeros((len(segway_cluster_list), segway_track_count))
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline()
+        for line in inputFile:
+            fields = line.strip().split()
+            track = track_assay_map[fields[1]]
+            track_ind = inputTrack_list.index(track) # track list order
+            segway_cluster = cluster_class_map[fields[0]]
+            cluster_ind = segway_cluster_list.index(segway_cluster) # cluster list order
+            signal_dist_mat[cluster_ind][track_ind] = round(float(fields[2]), 4)
+
+
+    # TODO: how are they normalized fed into the classifier - yes, finally time for that classifier pipeline look up!
+
+    
+    # cluster by tracks - plot against feature aggregation and stuff
+    # cluster by tracks + feature aggregation - plot against transcript data
+    # cluster by tracks + feature aggregation - plot against against other tracks and transcript data
+
+
+# also for the training data, use the clusterer 
+
+
+# do the clustering
+
+
+# compare the clustering etc.
+
+

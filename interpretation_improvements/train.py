@@ -14,10 +14,12 @@ from collections import defaultdict
 import shutil
 import os
 
+##### Marjan - TODO: figure this out based on the input and output files
+# the workdir is the output folder where the result of the classifier is saved. This is actually nice, since the output of classifier is attached to the actual code (and the input data? - I think we can keep the input data the same? or partially the same? The point is with every run, the code is saved as well, so we know which classifier is resulted from which code - OK)
+
 sys.path.append(".")
 # FIXME Switch to normal import instead of from/*
 from util import *
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument("workdir", type=Path)
@@ -27,13 +29,17 @@ workdir = args.workdir # the input directory where the file is?
 if not workdir.exists():
     workdir.makedirs()
 
-shutil.copy(__file__, workdir / "train.py") # copy this file into the work directory
-experiment_dir = Path(os.getcwd())
-project_dir = experiment_dir / ".." / ".." # project directory is two folders up (it will be the folder interpretation/)
-os.chdir(workdir) # going to the workdir
-workdir = Path(".")
-print(workdir)
+shutil.copy(__file__, workdir / "train.py") # copy this code file into the work directory and (not sure:) change the work directory to the where this file is
+experiment_dir = Path(os.getcwd()) # experiment_dir is where the train file exists and it is copied
 
+#### Marjan - TODO: what do we have in the experiment_dir
+project_dir = experiment_dir / ".." / ".." # project directory is two folders up (it will be the folder interpretation/)
+os.chdir(workdir) # going to the workdir (are we going to the workdir here?)
+workdir = Path(".") # not sure why this
+print(workdir) # ok
+
+
+# just for the logging 
 import logging
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s")
 logger = logging.getLogger('log')
@@ -63,6 +69,7 @@ import pandas
 import pickle
 from copy import deepcopy
 
+# Marjan: I think the below is for for system monitoring
 import psutil
 import resource
 process = psutil.Process(os.getpid())
@@ -85,14 +92,16 @@ def log_mem():
 #reference_anns_list = reference_ann_dir / "nobackup/10_2016-08-31_adding_our_annotations/all_annotations.txt"
 
 # file contains list of 39 reference annotation files from Segwgay, chromHMM, etc. from different cell types
-reference_anns_list = experiment_dir / "../01_2020-06-03_files/all_annotations.txt"
+# Marjan - TODO: where is it used?
+reference_anns_list = experiment_dir / "../01_2020-06-03_files/all_annotations.txt" 
 
 # segtools_dir: Location of segtools data files.
 # FIXME Improve interface: Instead of assuming a particular directory structure,
 # take a file in the format:
 # segtools_path \t ann_id \t type (signal-dist or aggregation) 
 #segtools_dir = referenceann_dir / "nobackup/10_2016-08-31_adding_our_annotations/"
-segtools_dir = experiment_dir / "../05_2020-07-02_reference_segtools"
+# Marjan: this is where I can find the segtool files
+segtools_dir = experiment_dir / "../05_2020-07-02_reference_segtools" 
 # 
 trackname_mapping_fname = experiment_dir / "../05_2020-07-02_reference_segtools/trackname_featurename.tsv"
 # label_mappings_fname: File with the human-curated mappings
