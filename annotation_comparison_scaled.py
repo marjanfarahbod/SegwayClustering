@@ -24,6 +24,8 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
 
+import glob
+
 # General data folder
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
 
@@ -463,9 +465,12 @@ for sampleFolder in sampleFolder_list:
     # plot the three heatmaps
 
     fig, axs = plt.subplots(2, 2, figsize=(12,8))
+
+    obs_exp_log = np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0))
+    obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
     
     # heatmap 1: the observed over expected ratio
-    h1 = pd.DataFrame(np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0)), index = segwayAxis_list, columns = chmmAxis_list)
+    h1 = pd.DataFrame(obs_exp_log, index = segwayAxis_list, columns = chmmAxis_list)
     #cmap = sns.diverging_palette(240, 10, s=100, l=30, as_cmap=True)
     cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
     g1 = sns.heatmap(h1, center = 0,cmap=cmap, ax=axs[0,0])
@@ -476,6 +481,7 @@ for sampleFolder in sampleFolder_list:
     #plt.ylabel('segway')
     #plt.ylabel('chmm')
     #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    sns.set(font_scale=1)
     plt.tight_layout()
     #plt.title('ratio - observed vs expected')
     #plt.show()
@@ -491,6 +497,7 @@ for sampleFolder in sampleFolder_list:
     #plt.ylabel('chmm')
     #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
     plt.tight_layout()
+
     #plt.show()
 
     # h3: track average signal (for the tracks in the thing only)
@@ -583,7 +590,7 @@ for sampleFolder in sampleFolder_list:
     fig.suptitle(sampleFolder + ' - ' +tissue_info[sampleFolder][0] + ' - ' + tissue_info[sampleFolder][1])
     #plt.show()
     plotFolder_add = plotFolder + sampleFolder + '/'
-    figFile = plotFolder_add + 'the_panel.pdf'
+    figFile = plotFolder_add + 'the_panel_02.pdf'
     print(figFile)
     plt.savefig(figFile)
     plt.close('all')
