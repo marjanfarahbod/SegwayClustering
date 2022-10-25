@@ -11,10 +11,19 @@
 # add new samples
 # train the new model
 
-# TODO: plot the confusion matrix
+# TODO: plot the confusion matrix - DONE
+# TODO: get the probs from the classifier
 # TODO: print the text file
 
 # 0. Initiation and set up
+# 1. Get the old classifier training data 
+## 1.0 Get the old  label_mappings (this is also where we get the updated labels, but from the old samples)
+## 1.1 Get the old featrues and fetch their labels based on the label_mappings
+# 2. Getting data from the 105 sample runs, getting the feature matrix.
+# ** plotting a set of samples just to see how different it is from the old classifier data
+# 3. Training the classifier
+# 4. Extend the training data
+
 
 ########################################
 # 0. Initiation and set up
@@ -60,14 +69,25 @@ dataSubFolder = 'testBatch105/fromAPI/'
 
 # get the file: classifier_data.tab
 
-classifier_tab_fname = dataFolder + 'classifier_data.tab'
+classifier_tab_fname = dataFolder + 'classifier_data.tab' # this is the old classifier data
+
+#########################################
+# 1. Get the old classifier training data 
+#########################################
+
+# 1.0 Getting the labels (this is also where we get the updated labels, but from the old samples)
+#########################################
+'''
+In this part, only the mapping of the labels are made and the 
+paring of the features and labels remains for the next part
+'''
+
+
+'''
+I will have the new data in this one as well
+'''
+# these are the old labels (from 2019)
 label_mapping = dataFolder + 'label_mappings.txt'
-label_mapping = dataFolder + 'label_mappings_Oct15_2022.tsv'
-
-#########################################
-# 0.1 Get bio label conversions
-#########################################
-
 label_mappings = {}
 labels_set = set()
 orig_labels_set = set()
@@ -87,10 +107,33 @@ with open(label_mapping, "r") as f:
 
 all_ref_bio_labels = set.union(*map(set, map(lambda x: x.values(), label_mappings.values())))
 
+# to get the first N biolabels
+# these are the new labels (from 2022)
+label_mapping = runFolder + 'run02/label_mappings_trainSelect.csv'
+N = 295 # the old sample biolables
+label_mappings = {}
+#orig_labels_set = set()
+with open(label_mapping, "r") as f:
+    for i in range(N):
+        line = next(f).strip().split(',')
+        if line[0] == "concatenation_key":
+            continue
+        concatenation_key = line[0]
+        orig_label = line[1]
+        label = line[2]
+        if not concatenation_key in label_mappings:
+            label_mappings[concatenation_key] = {}
+        label_mappings[concatenation_key][orig_label] = label
+        #orig_labels_set.add(orig_label)
+
+
+all_ref_bio_labels = set.union(*map(set, map(lambda x: x.values(), label_mappings.values())))
+
+# 1.1 Getting the features
 #######################################################
-# 0.2 Convert classifier data to numpy matrix
-#######################################################
-# checkpoint: are the labels transferred correctly? 
+'''
+We need to run this part to get the example_bio_labels
+'''
 
 classifier_data_frame = pd.read_csv(classifier_tab_fname, sep="\t")
 
@@ -105,13 +148,24 @@ for i in range(classifier_data_frame.shape[0]):
         logger.warning("No label mapping for {concatenation_key} {orig_label}".format(**locals()))
         example_bio_labels[i] = "??"
 
-
+labels_set = set(example_bio_labels)
 example_bio_labels = numpy.array(example_bio_labels) # classifier label
 feature_names = numpy.array(classifier_data_frame.drop("orig_label", 1).drop("concatenation_key",1).columns)
 example_orig_labels = numpy.array(classifier_data_frame.orig_label) # we don't need to use this
 
-segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> the new count
+print(labels_set)
+segwayLabels = list(labels_set)
 
+label_training_counts_223 = np.zeros([len(labels_set),1])
+for label in example_bio_labels:
+    ind = segwayLabels.index(label)
+    label_training_counts_223[ind] += 1
+    
+print(label_training_counts_223)
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> the old count
+# old labels segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
 # note: the 'LowConfidence' up there, is called 'Unclassified' in the labels
 label_training_counts_223 = np.zeros([9,1])
 for label in example_bio_labels:
@@ -121,17 +175,30 @@ for label in example_bio_labels:
         ind = segwayLabels.index(label)
         label_training_counts_223[ind] += 1
 
-print(label_training_counts_223)
-
 print(classifier_data_frame.mean(axis = 0))
 
 ################# Hard Coding Feature Order ####################
 feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
 
+# reordering the features 
 example_features = features_frame_to_matrix(classifier_data_frame, feature_names)
+example_bio_labels = numpy.array(example_bio_labels) # classifier label
 
+# Saving the original training data
+model_labels = example_bio_labels
+model_features = example_features
 
-# getting data from the 105 sample runs
+original_training_data_file = runFolder + 'run02/trainingData_223_2022labels_00.pkl'
+original_training_data = {}
+original_training_data['model_labels'] = model_labels
+original_training_data['model_features'] = model_features
+with open(original_training_data_file, 'wb') as f:
+    pickle.dump(original_training_data, f)
+
+#########################################
+# 2. Getting data from the 105 sample runs, getting the feature matrix.
+#########################################
+
 inputFileName = 'all_annInfo_list.pkl'
 inputFile = dataFolder + dataSubFolder + inputFileName
 with open(inputFile, 'rb') as f:
@@ -175,40 +242,32 @@ for ann in ann_info_list:
 
 allFeatureAgg_mat = allFeatureAgg_mat[0:afa_index,] # this has all the features to the order of feature_names (like the classifier data)
 
-# plotting a set of samples just to see how different it is from the old classifier data
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# ** plotting a set of samples just to see how different it is from the old classifier data
 df = pd.DataFrame(allFeatureAgg_mat[0:100,])
 classifier_data_frame # the other one
 
-    fig, axs = plt.subplots(1, 2, figsize=[8, 10])
+fig, axs = plt.subplots(1, 2, figsize=[8, 10])
 
-    # plotting the transcript data
-    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
-    sns.heatmap(df,  ax=axs[0])
-    #sns.heatmap(df, center = 0, cmap=cmap, vmin=-2, vmax=2, ax=axs[0], cbar_kws=dict(use_gridspec=False, location="top"))
+# plotting the transcript data
+cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+sns.heatmap(df,  ax=axs[0])
+df2 = classifier_data_frame
+df3 = df2.drop(['orig_label', 'concatenation_key'], axis = 1)
+sns.heatmap(df3, ax=axs[1])
 
-    # todo: plot the rest of the features
-    # get the features:
-    # get the index
-    df2 = classifier_data_frame
-    df3 = df2.drop(['orig_label', 'concatenation_key'], axis = 1)
-    sns.heatmap(df3, ax=axs[1])
-    #sns.heatmap(df, ax=axs[1], cbar_kws=dict(use_gridspec=False, location="top"))
+plt.show()
+plt.close('all')
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    plt.show()
-
-    plt.close('all')
+########################################
+# 3. Training the classifier 
+########################################
 
 
-# train the classifier- test it and plot the new labels. for the old label.
-
-feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
-
-# converting the classifier_data_frame to the new feature order (we only do this to keep the order the same)
-example_features = features_frame_to_matrix(classifier_data_frame, feature_names)
-
-model_labels = example_bio_labels
-model_features = example_features
-
+# 3.0 Training with the old training data
+########################################
+ 
 def make_model(reg): 
     return RandomForestClassifier(min_samples_leaf=reg, criterion="entropy")
 
@@ -217,11 +276,12 @@ reg = .067 # it seems that reg 15 or 15/223 is the best one. I will balance the 
 model = make_model(reg)
 model.fit(model_features, model_labels)
 
-
+# save the model
+'''
 model_file = runFolder + "model_223exp_reg15_auc0.75.pickle.gz"
 with gzip.open(model_file, "w") as f:
     pickle.dump(model, f)
-
+'''
 
 from sklearn.metrics import precision_recall_fscore_support as score
 import numpy as np
@@ -234,22 +294,27 @@ Accuracy = accuracy_score(model_labels, model.predict(model_features))
 print("Accuracy: {}".format(Accuracy))
 print(list(model.predict(model_features)))
 print(list(model_labels))
+
+# save the model
+model_file = runFolder + "run02/model_223exp_reg15_auc0.78.pickle.gz"
+with gzip.open(model_file, "w") as f:
+    pickle.dump(model, f)
+
+# save the confusion matrix
 from sklearn.metrics import confusion_matrix
 confusion_mat = confusion_matrix(model_labels, model.predict(model_features))
 print(confusion_mat)
 import matplotlib.pyplot as plt
 from sklearn.metrics import plot_confusion_matrix
-plot_confusion_matrix(model, model_features, model_labels)
-plt.show()
-plt.savefig("Confusion.pdf")
-    
-# example assigned term
-# example identified term
-
-# TODO: add rows to the training data, train the new classifier
+plot_confusion_matrix(model, model_features, model_labels, xticks_rotation='vertical')
+plt.grid(False)
+plt.tight_layout()
+#plt.show()
+pltFile = runFolder + 'run01/model_223exp_reg15_auc0.78.pdf'
+plt.savefig(pltFile)
 
 ########################################
-# Extend the training data
+# 4. Extend the training data
 ########################################
 
 # 1. load the original traning data - add their labels
@@ -411,6 +476,12 @@ with open(inputFile, 'rb') as f:
 allFeatureAgg_mat  # features
 all_labels = the_model.predict(allFeatureAgg_mat) # classifier output
 agg_cluster_list # cluster id
+
+classifier_output = {'cluster_list': agg_cluster_list, 'interpretation_term': all_labels}
+classifier_output_file = runFolder + "model_296exp_reg0.067_auc0.77on.32test_classifier_labels.pickle"
+with open(classifier_output_file, "wb") as f:
+    pickle.dump(classifier_output, f)
+
 
 # here, we only need the all_labels and the clusterIDs, we have the actual values normalized for the plot from the data_105.
 
