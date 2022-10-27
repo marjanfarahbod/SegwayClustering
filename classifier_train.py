@@ -23,7 +23,8 @@
 # ** plotting a set of samples just to see how different it is from the old classifier data
 # 3. Training the classifier
 # 4. Extend the training data
-
+# 5. Apply the model on the whole data and get the large matrix with colors and all
+# DRAFT
 
 ########################################
 # 0. Initiation and set up
@@ -158,7 +159,7 @@ print(labels_set)
 segwayLabels = list(labels_set)
 
 label_training_counts_223 = np.zeros([len(labels_set),1])
-for label in example_bio_labels:
+for label in model_labels_extended:#example_bio_labels:
     ind = segwayLabels.index(label)
     label_training_counts_223[ind] += 1
     
@@ -194,6 +195,12 @@ original_training_data['model_labels'] = model_labels
 original_training_data['model_features'] = model_features
 with open(original_training_data_file, 'wb') as f:
     pickle.dump(original_training_data, f)
+
+with open(original_training_data_file, 'rb') as f:
+    original_training_data = pickle.load(f)
+
+model_labels = original_training_data['model_labels']
+model_features = original_training_data['model_features']
 
 #########################################
 # 2. Getting data from the 105 sample runs, getting the feature matrix.
@@ -264,7 +271,6 @@ plt.close('all')
 # 3. Training the classifier 
 ########################################
 
-
 # 3.0 Training with the old training data
 ########################################
  
@@ -272,7 +278,8 @@ def make_model(reg):
     return RandomForestClassifier(min_samples_leaf=reg, criterion="entropy")
 
 #reg = 1e-2
-reg = .067 # it seems that reg 15 or 15/223 is the best one. I will balance the samples and train the model then. 
+reg = .067 # it seems that reg 15 or 15/223 is the best one. I will balance the samples and train the model then.
+
 model = make_model(reg)
 model.fit(model_features, model_labels)
 
@@ -314,9 +321,121 @@ pltFile = runFolder + 'run01/model_223exp_reg15_auc0.78.pdf'
 plt.savefig(pltFile)
 
 ########################################
-# 4. Extend the training data
+# 4. Extend the training data - report the phase 2 of the classifier
 ########################################
+# OUT OF CODE TODO: add samples to the training data - DONE
 
+# read the extended line from label_mappings file:
+label_mapping = runFolder + 'run02/label_mappings_trainSelect.csv'
+IDlist_labels = {}
+with open(label_mapping, "r") as f:
+    lines = f.readlines()[296:360]
+    for line in lines:
+        if '?' in line:
+            continue
+        else:
+            elements = line.strip().split(',')
+            clusterID = elements[0].split('_')[1] + '___' + elements[1]
+            label = elements[2]
+            IDlist_labels[clusterID] = label
+    
+
+# extend the classifier
+model_features_extended = model_features
+model_labels_extended = list(model_labels)
+
+for item in IDlist_labels.keys():
+    print(item)
+    theIndex = agg_cluster_list.index(item)
+    print(theIndex)
+    this_features = allFeatureAgg_mat[theIndex,]
+    this_features_reshape = np.reshape(this_features, (1,16))
+    model_features_extended = np.append(model_features_extended, this_features_reshape, axis=0)
+    model_labels_extended.append(IDlist_labels[item])
+    
+model_labels_extended_array = numpy.array(model_labels_extended)
+            
+# fix the cross_validation sets
+cross_count = 3
+index_sets = []
+total_sampleCount = len(model_labels_extended_array)
+select_count = int((1/cross_count)*total_sampleCount)
+select_index = set(range(total_sampleCount))
+for i in range(cross_count):
+    print(i)
+    one_set = set(random.sample(select_index, select_count))
+    index_sets.append(one_set)
+    select_index = select_index - one_set
+
+
+# for a model, do the set
+model_list = []
+for i in range(cross_count):
+
+    test_index = index_sets[i]
+    train_index = set()
+    for j in set(range(cross_count))-{i}: train_index = train_index.union(index_sets[j])
+
+    
+    train_index = list(train_index)
+    test_index = list(test_index)
+
+    train_features = model_features_extended[train_index,]
+    test_features = model_features_extended[test_index,]
+    train_labels = model_labels_extended_array[train_index]
+    test_labels = model_labels_extended_array[test_index]
+
+    reg = .02
+    model = make_model(reg)
+    model.fit(train_features, train_labels)
+
+    Accuracy = accuracy_score(train_labels, model.predict(train_features))
+    print(Accuracy)
+
+    plot_confusion_matrix(model, train_features, train_labels, xticks_rotation='vertical')
+    plt.grid(False)
+    plt.tight_layout()
+    plot_file = runFolder + 'run02/confusion_mat_train_3fold__%d.pdf' %(i)
+    plt.savefig(plot_file)
+    plt.close('all')
+
+    Accuracy = accuracy_score(test_labels, model.predict(test_features))
+    print(Accuracy)
+
+    plot_confusion_matrix(model, test_features, test_labels, xticks_rotation='vertical')
+    plt.grid(False)
+    plt.tight_layout()
+    plot_file = runFolder + 'run02/confusion_mat_test_3fold__%d.pdf' %(i)
+    plt.savefig(plot_file)
+    plt.close('all')
+    
+    model_list.append(model)
+
+# doing the whole data train
+train_index = range(total_sampleCount)
+train_features = model_features_extended[train_index,]
+train_labels = model_labels_extended_array[train_index]
+
+reg = .027
+model = make_model(reg)
+model.fit(train_features, train_labels)
+Accuracy = accuracy_score(train_labels, model.predict(train_features))
+print(Accuracy)
+plot_confusion_matrix(model, train_features, train_labels, xticks_rotation='vertical')
+plt.grid(False)
+plt.tight_layout()
+plot_file = runFolder + 'run02/model_278exp_reg.027_auc.84_allData.pdf' 
+plt.savefig(plot_file)
+plt.show()
+
+'''
+What I did: I did the model with the 3 fold cross validation. With this setting, I got the accuracy .90+ for  train set, and ~70 for the test set. When I trained with the whole data, I got the accuracy around .84. My conclusion for now is that the variation is not enough in the cross validaion set, and the model got overfit. While with the complete set, there is less overfitting. I got confusion matrices and the rest of the stuff to make my report. The good thing is that model seems to be able to pick on the CTCF, k9k36 and all the newly added groups. at this point I should examine the big plot 
+
+'''
+
+
+# DRAFT
+########################################
 # 1. load the original traning data - add their labels
 
 # 2. load the list of extended - add the labels
@@ -326,6 +445,53 @@ plt.savefig(pltFile)
 # 4. document the train process with the parameters
 
 # 5. document the model
+
+Accuracy = accuracy_score(test_labels, model.predict(test_features))
+print(Accuracy)
+plot_confusion_matrix(model, test_features, test_labels, xticks_rotation='vertical')
+plt.grid(False)
+plt.tight_layout()
+
+plt.show()
+
+model_list = []
+model = model_list[9]
+for i in range(50):
+
+    print(i)
+    train_percentage = 2/3
+    total_sampleCount = len(model_labels_extended_array)
+    train_index = set(random.sample(range(total_sampleCount), int(train_percentage*total_sampleCount)))
+    test_index = set(range(total_sampleCount)) - train_index
+
+    train_index = list(train_index)
+    test_index = list(test_index)
+
+    train_features = model_features_extended[train_index,]
+    test_features = model_features_extended[test_index,]
+    train_labels = model_labels_extended_array[train_index]
+    test_labels = model_labels_extended_array[test_index]
+
+    #train_features = model_features_extended
+    #train_labels = model_labels_extended_array
+
+    reg = .02
+    #model = make_model(reg)
+    #model.fit(train_features, train_labels)
+    #model_list.append(model)
+    Accuracy = accuracy_score(train_labels, model.predict(train_features))
+    print(Accuracy)
+    trainA = Accuracy
+
+
+    Accuracy = accuracy_score(test_labels, model.predict(test_features))
+    print(Accuracy)
+    testA = Accuracy
+
+    print(trainA - testA)
+    #model_list.append(model)
+    
+
 
 # let's get everything to 43
 # enhancer
@@ -400,21 +566,52 @@ test_features = model_features_extended[test_index,]
 train_labels = model_labels_extended_array[train_index]
 test_labels = model_labels_extended_array[test_index]
 
+#train_features = model_features_extended
+#train_labels = model_labels_extended_array
+
 
 #reg = 1e-2
-reg = .067 # it seems that reg 15 or 15/223 is the best one. I will balance the samples and train the model then. 
+reg = .055 # it seems that reg 15 or 15/223 is the best one. I will balance the samples and train the model then.
+reg = .02
 model = make_model(reg)
 model.fit(train_features, train_labels)
+Accuracy = accuracy_score(train_labels, model.predict(train_features))
+plot_confusion_matrix(model, train_features, train_labels, xticks_rotation='vertical')
+plt.grid(False)
+plt.tight_layout()
+
+plt.show()
+
+
+Accuracy = accuracy_score(test_labels, model.predict(test_features))
+plot_confusion_matrix(model, test_features, test_labels, xticks_rotation='vertical')
+plt.grid(False)
+plt.tight_layout()
+
+plt.show()
+
 
 model_features
 model_labels
 model.fit(model_features, model_labels)
 Accuracy = accuracy_score(model_labels, model.predict(model_features))
+
+Accuracy = accuracy_score(test_labels, model.predict(test_features))
 print("Accuracy: {}".format(Accuracy))
-plot_confusion_matrix(model, model_features, model_labels)
+plot_confusion_matrix(model, model_features, model_labels, xticks_rotation='vertical')
+
+plot_confusion_matrix(model, test_features, test_labels, xticks_rotation='vertical')
+plt.grid(False)
+plt.tight_layout()
+
 plt.show()
 figFile = runFolder + 'model_223_reg0.067_auc0.74.pdf'
 plt.savefig(figFile)
+
+model_file = runFolder + "run02/model_278exp_reg0.028_auc0.86_wholeData.pickle.gz"
+with gzip.open(model_file, "w") as f:
+    pickle.dump(model, f)
+
 
 model_file = runFolder + "model_296exp_reg0.067_auc0.77on.32test.pickle.gz"
 with gzip.open(model_file, "w") as f:
