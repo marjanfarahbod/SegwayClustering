@@ -284,7 +284,7 @@ model = make_model(reg)
 model.fit(model_features, model_labels)
 
 # save the model
-'''
+'''z
 model_file = runFolder + "model_223exp_reg15_auc0.75.pickle.gz"
 with gzip.open(model_file, "w") as f:
     pickle.dump(model, f)
@@ -354,7 +354,49 @@ for item in IDlist_labels.keys():
     model_labels_extended.append(IDlist_labels[item])
     
 model_labels_extended_array = numpy.array(model_labels_extended)
-            
+
+# 4.1 leave one out cross validation
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+test_labels = []
+ 
+reg = .023
+for i in range(len(model_labels_extended_array)):
+    print(i)
+    train_features = np.delete(model_features_extended, i, axis = 0)
+    train_labels = np.delete(model_labels_extended_array, i, axis = 0)
+    test_features = model_features_extended[i,]
+
+    model = make_model(reg)
+    model.fit(train_features, train_labels)
+    label = model.predict(test_features.reshape(1,-1))
+    test_labels.append(label)
+
+segwayLabels_order = [5, 10, 6,7,8, 9, 11, 3, 2, 0, 4,1]
+segwayLabels_reorder = [segwayLabels[i] for i in segwayLabels_order]
+Accuracy = accuracy_score(model_labels_extended, test_labels)
+print(Accuracy)
+from sklearn.metrics import confusion_matrix
+cmat = confusion_matrix(model_labels_extended, test_labels, labels=segwayLabels_reorder)
+
+from sklearn.metrics import ConfusionMatrixDisplay
+disp = ConfusionMatrixDisplay(cmat, display_labels = segwayLabels_reorder)
+disp.plot()
+plt.rcParams.update({'font.size': 10})
+plt.xticks(fontsize=10, rotation=90)
+plt.yticks(fontsize=10)
+plt.xlabel('predicted', fontsize=12)
+plt.xlabel('predicted', fontsize=12)
+plt.ylabel('true', fontsize=12)
+plt.grid(False)
+plt.tight_layout()
+#plt.show()
+plot_file = runFolder + 'run02/confusion_mat_loo_auc.72.pdf' 
+plt.savefig(plot_file)
+plt.close('all')
+
+
+# 4.2 3 fold cross validation
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # fix the cross_validation sets
 cross_count = 3
 index_sets = []
@@ -432,7 +474,221 @@ plt.show()
 What I did: I did the model with the 3 fold cross validation. With this setting, I got the accuracy .90+ for  train set, and ~70 for the test set. When I trained with the whole data, I got the accuracy around .84. My conclusion for now is that the variation is not enough in the cross validaion set, and the model got overfit. While with the complete set, there is less overfitting. I got confusion matrices and the rest of the stuff to make my report. The good thing is that model seems to be able to pick on the CTCF, k9k36 and all the newly added groups. at this point I should examine the big plot 
 
 '''
+####### predict the model for
 
+#########################################
+# 5. Predict the model and examine that
+######################################### 
+
+inputFileName = 'clusterings_dendro_indices.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    clusterings = pickle.load(f)
+
+inputFileName = 'allData_mat_105run.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    data_105 = pickle.load(f)
+
+print(data_105['cluster_list'][0:10])
+
+# load the model
+model_file = runFolder + "run02/model_278exp_reg0.028_auc0.86_wholeData.pickle.gz"
+with gzip.open(model_file, "r") as f:
+    the_model = pickle.load(f)
+
+'''
+inputFile = runFolder + 'model_296exp_reg0.067_auc0.77on.32test.pickle'
+with open(inputFile, 'rb') as f:
+    the_model = pickle.load(f)
+'''
+
+allFeatureAgg_mat  # features
+all_labels = the_model.predict(allFeatureAgg_mat) # classifier output
+probs = model.predict_proba(allFeatureAgg_mat)
+agg_cluster_list # cluster id
+
+# new classifier data for Abe
+newLabel_data ={}
+newLabel_data['labels'] = all_labels
+newLabel_data['cluster_list'] = agg_cluster_list
+
+ann_info = data_105['key']
+index_accession = {}
+for item in ann_info:
+    index_accession[item['index']] = item['accession']
+    
+newLabel_data['index_accession']  = index_accession
+#newLabel_data['annotation_info'] = data_105['key']
+
+label_info = runFolder + "run02/labelDataForAbe.pickle"
+with open(label_info, 'wb') as f:
+    pickle.dump(newLabel_data, f)
+
+
+'''
+# save the labels
+classifier_output = {'cluster_list': agg_cluster_list, 'interpretation_term': all_labels}
+classifier_output_file = runFolder + "model_296exp_reg0.067_auc0.77on.32test_classifier_labels.pickle"
+with open(classifier_output_file, "wb") as f:
+    pickle.dump(classifier_output, f)
+'''
+
+# here, we only need the all_labels and the clusterIDs, we have the actual values normalized for the plot from the data_105.
+
+print(data_105.keys())
+print(clusterings.keys())
+
+# this is for the classifier data - the data that we used in this code. Not the data that we brought in for plotting. For the new plot, we only need the new assigned predicted interpretation terms, instead of the old ones.
+feature_order = ['(09) initial exon',"(08) 5' flanking (1-1000 bp)", '(10) initial intron', '(11) internal exons','(01) H3K9me3',  '(02) H3K27me3', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", ]
+
+
+plot_data = data_105['whole_mat'][clusterings['ward_16'],0:16]
+plot_data = data_105['whole_mat'][0:17, 17:20] # FOR THE POSTER
+feature_list_original = data_105['feature_list']
+feature_list_reorder = ['initial exon', "5' flanking (1-1000 bp)",'initial intron', 'internal exons', 'internal introns',  'terminal exon', 'terminal intron', "3' flanking (1-1000 bp)", "5' flanking (1000-10000 bp)", "3' flanking (1000-10000 bp)", 'H3K4me3', 'H3K27ac', 'H3K4me1', 'H3K36me3', 'H3K27me3',  'H3K9me3']
+
+book = data_105['cluster_list']
+plot_original_labels = book[0:100] # FOR THE POSTER
+plot_original_labels = [book[i] for i in clusterings['ward_16']] # list of original labels
+agg_cluster_list # list of cluster IDs
+all_labels # list of predictions, it has the same order of the agg_cluster_list
+'''
+colormapping = {'Quiescent':[255,255,255], 'Promoter':[255,0,0], 'RegPermissive':[255,255,0], 'LowConfidence':[128,128,128], 'FacultativeHet':[128,0,128], 'Enhancer':[255,195,77], 'Bivalent':[200,200,100], 'Transcribed':[0,128,0], 'ConstitutiveHet':[137,236,218]}
+'''
+colormapping = {'Quiescent':[255,255,255], 'Promoter':[255,0,0], 'Promoter_flanking':[180,0,0],'CTCF':[255,255,0], 'K9K36':[128,128,128], 'FacultativeHet':[128,0,128], 'Enhancer':[255,195,77], 'Enhancer_low':[180,130,50], 'Bivalent':[200,200,100], 'Transcribed':[0,128,0], 'ConstitutiveHet':[137,236,218]}
+
+
+plot_predicted_labels = []
+plot_colors = []
+plot_labels = []
+p_index_list = []
+for o_label in plot_original_labels:
+    tokens = o_label.split('_')
+    term = tokens[-1]
+    id = tokens[0] + '___' + tokens[3]
+    predict_label_index = agg_cluster_list.index(id)
+    p_label = all_labels[predict_label_index]
+    p_index_list.append(predict_label_index)
+    plot_labels.append(p_label)
+    if p_label == 'Unclassified':
+        p_label = 'LowConfidence'
+    new_label = id + '_' + p_label
+    plot_predicted_labels.append(new_label)
+    color = np.array(colormapping[p_label])/255
+    plot_colors.append(color)
+
+df = pd.DataFrame(data_105['color'][clusterings['ward_16'][700:1000],])
+sns.heatmap(df)
+plt.show()
+
+for label in segwayLabels:
+    print(plot_labels.count(label))
+ 
+plot_original_labels_noID = []
+for label in plot_original_labels:
+    stripped = label.split('_')[-1]
+    plot_original_labels_noID.append(stripped)
+    
+for label in segwayLabels:
+    print(plot_original_labels_noID.count(label))
+
+# getting the confusion matrix myself
+confusion_mat = np.zeros([9,9], dtype=np.intc)
+for i, label in enumerate(plot_original_labels_noID):
+    x = segwayLabels.index(label)
+    new_label = plot_labels[i]
+    if new_label == 'Unclassified':
+        y = 8
+    else:
+        y = segwayLabels.index(new_label)
+    confusion_mat[x, y]+=1
+        
+
+#from sklearn.metrics import confusion_matrix
+#confusion_mat = confusion_matrix(plot_labels, plot_original_labels_noID)
+fig, axs = plt.subplots(1,1, figsize = (6,6))
+
+df = pd.DataFrame(confusion_mat, index = segwayLabels, columns = segwayLabels)
+sns.heatmap(df, annot=True, fmt='d')
+sns.set(font_scale=1)
+plt.xlabel('classifier 01')
+plt.ylabel('classifier 00')
+plt.title('classifier label overlap')
+plt.tight_layout()
+figFile = plotFolder + 'classifier_label_overlap_00_01.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+plt.show()
+
+### TODO: print the labels in a file
+# plot_predicted_labels
+# labels selected for training
+# plot_original_labels
+
+classifier_label_file = dataFolder + dataSubFolder + 'label_file.txt'
+with open(classifier_label_file, 'w') as output:
+    header = 'classifier_00_labels\tclassifier_01_train_select\tclassifier_01_labels\n'
+    output.write(header)
+    for i, olabel in enumerate(plot_original_labels):
+        line =  '%s\t%s\t%s\n' %(olabel, ' ', plot_predicted_labels[i])
+        output.write(line)
+
+
+from scipy.stats import zscore
+
+plot_data_z = stats.zscore(plot_data, axis = 0)
+plot_data_z = zscore(plot_data, axis = 0)
+plot_data_z_thr = np.where(plot_data_z > 4, 4, plot_data_z)
+
+#myMat = plot_data[0:20, 0:16]
+#df = pd.DataFrame(plot_data, index = plot_original_labels[0:20], columns = data_105['feature_list'])
+df = pd.DataFrame(plot_data_z_thr, index = plot_predicted_labels, columns = data_105['feature_list'])
+df = pd.DataFrame(plot_data_z_thr, columns = data_105['feature_list']) # FOR POSTER
+df = pd.DataFrame[plot_data] # FOR POSTER
+df = df.apply(zscore, axis=0)
+df = df[feature_list_reorder]
+
+sib = sns.clustermap(df, figsize=(6, 15), row_cluster=False, col_cluster=False, dendrogram_ratio = [.25,.01], cbar_pos=(.02, .985,.03,.01)) # FOR POSTER
+
+# the black lines are not zero, they are just very close to zero
+sib = sns.clustermap(df, figsize=(6, 150), row_colors= plot_colors, row_cluster=False, col_cluster=False, dendrogram_ratio = [.25,.01], cbar_pos=(.02, .985,.03,.01))
+sns.set(font_scale = .4)
+
+figFile = figFile = '/Users/marjanfarahbod/Documents/talks/RSGDREAM2022/fig5.pdf'
+figFile = '%sclustering_example_model_trained_ward_16_zcol_thr__v02.pdf' %(plotFolder)
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+# reordering dataframe columns: 
+sns.heatmap(df)
+plt.show()
+
+
+# plot the probs 
+########################################
+plot_probs = probs[p_index_list,0:-1]
+df = pd.DataFrame(plot_probs, index=plot_predicted_labels, columns=model.classes_[0:-1])
+
+fig, axs = plt.subplots(1, 1, figsize=[4, 150])
+
+sns.heatmap(df)
+plt.tight_layout()
+
+figFile = runFolder + 'run02/probsplot.pdf'
+print(figFile)
+plt.savefig(figFile)
+
+# the black lines are not zero, they are just very close to zero
+
+# getting count of diferent labels, from the original to the new one. 
+
+# todo: run it on all the data based on the classification. Let's just see what we get. 
+
+# todo: make a tab delimitered file, one column the old labels, one column, new labels. The other column 
 
 # DRAFT
 ########################################
@@ -643,164 +899,6 @@ plt.show()
 figFile = runFolder + 'model_296exp_reg0.067_auc0.77on.32test_trainConfustion.pdf'
 figFile = runFolder + 'model_296exp_reg0.067_auc0.77on.32test_testConfustion.pdf'
 plt.savefig(figFile)
-
-####### predict the model for
-
-#########################################
-# Predict the model and examine that
-######################################### 
-
-
-# stats on the previous labels
-
-inputFileName = 'clusterings_dendro_indices.pkl'
-inputFile = dataFolder + dataSubFolder + inputFileName
-with open(inputFile, 'rb') as f:
-    clusterings = pickle.load(f)
-
-inputFileName = 'allData_mat_105run.pkl'
-inputFile = dataFolder + dataSubFolder + inputFileName
-with open(inputFile, 'rb') as f:
-    data_105 = pickle.load(f)
-
-print(data_105['cluster_list'][0:10])
-
-# load the model
-inputFile = runFolder + 'model_296exp_reg0.067_auc0.77on.32test.pickle'
-with open(inputFile, 'rb') as f:
-    the_model = pickle.load(f)
-
-allFeatureAgg_mat  # features
-all_labels = the_model.predict(allFeatureAgg_mat) # classifier output
-agg_cluster_list # cluster id
-
-classifier_output = {'cluster_list': agg_cluster_list, 'interpretation_term': all_labels}
-classifier_output_file = runFolder + "model_296exp_reg0.067_auc0.77on.32test_classifier_labels.pickle"
-with open(classifier_output_file, "wb") as f:
-    pickle.dump(classifier_output, f)
-
-
-# here, we only need the all_labels and the clusterIDs, we have the actual values normalized for the plot from the data_105.
-
-print(data_105.keys())
-print(clusterings.keys())
-
-# this is for the classifier data - the data that we used in this code. Not the data that we brought in for plotting. For the new plot, we only need the new assigned predicted interpretation terms, instead of the old ones.
-feature_order = ['(09) initial exon',"(08) 5' flanking (1-1000 bp)", '(10) initial intron', '(11) internal exons','(01) H3K9me3',  '(02) H3K27me3', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", ]
-
-
-plot_data = data_105['whole_mat'][clusterings['ward_16'],0:16]
-feature_list_original = data_105['feature_list']
-feature_list_reorder = ['initial exon', "5' flanking (1-1000 bp)",'initial intron', 'internal exons', 'internal introns',  'terminal exon', 'terminal intron', "3' flanking (1-1000 bp)", "5' flanking (1000-10000 bp)", "3' flanking (1000-10000 bp)", 'H3K4me3', 'H3K27ac', 'H3K4me1', 'H3K36me3', 'H3K27me3',  'H3K9me3']
-
-book = data_105['cluster_list']
-plot_original_labels = [book[i] for i in clusterings['ward_16']] # list of original labels
-agg_cluster_list # list of cluster IDs
-all_labels # list of predictions, it has the same order of the agg_cluster_list
-
-colormapping = {'Quiescent':[255,255,255], 'Promoter':[255,0,0], 'RegPermissive':[255,255,0], 'LowConfidence':[128,128,128], 'FacultativeHet':[128,0,128], 'Enhancer':[255,195,77], 'Bivalent':[200,200,100], 'Transcribed':[0,128,0], 'ConstitutiveHet':[137,236,218]}
-
-plot_predicted_labels = []
-plot_colors = []
-plot_labels = []
-for o_label in plot_original_labels:
-    tokens = o_label.split('_')
-    term = tokens[-1]
-    id = tokens[0] + '___' + tokens[3]
-    predict_label_index = agg_cluster_list.index(id)
-    p_label = all_labels[predict_label_index]
-    plot_labels.append(p_label)
-    if p_label == 'Unclassified':
-        p_label = 'LowConfidence'
-    new_label = id + '_' + p_label
-    plot_predicted_labels.append(new_label)
-    color = np.array(colormapping[p_label])/255
-    plot_colors.append(color)
-
-df = pd.DataFrame(data_105['color'][clusterings['ward_16'][700:1000],])
-sns.heatmap(df)
-plt.show()
-
-for label in segwayLabels:
-    print(plot_labels.count(label))
- 
-plot_original_labels_noID = []
-for label in plot_original_labels:
-    stripped = label.split('_')[-1]
-    plot_original_labels_noID.append(stripped)
-    
-for label in segwayLabels:
-    print(plot_original_labels_noID.count(label))
-
-# getting the confusion matrix myself
-confusion_mat = np.zeros([9,9], dtype=np.intc)
-for i, label in enumerate(plot_original_labels_noID):
-    x = segwayLabels.index(label)
-    new_label = plot_labels[i]
-    if new_label == 'Unclassified':
-        y = 8
-    else:
-        y = segwayLabels.index(new_label)
-    confusion_mat[x, y]+=1
-        
-
-#from sklearn.metrics import confusion_matrix
-#confusion_mat = confusion_matrix(plot_labels, plot_original_labels_noID)
-fig, axs = plt.subplots(1,1, figsize = (6,6))
-
-df = pd.DataFrame(confusion_mat, index = segwayLabels, columns = segwayLabels)
-sns.heatmap(df, annot=True, fmt='d')
-sns.set(font_scale=1)
-plt.xlabel('classifier 01')
-plt.ylabel('classifier 00')
-plt.title('classifier label overlap')
-plt.tight_layout()
-figFile = plotFolder + 'classifier_label_overlap_00_01.pdf'
-print(figFile)
-plt.savefig(figFile)
-plt.close('all')
-
-plt.show()
-
-### TODO: print the labels in a file
-# plot_predicted_labels
-# labels selected for training
-# plot_original_labels
-
-classifier_label_file = dataFolder + dataSubFolder + 'label_file.txt'
-with open(classifier_label_file, 'w') as output:
-    header = 'classifier_00_labels\tclassifier_01_train_select\tclassifier_01_labels\n'
-    output.write(header)
-    for i, olabel in enumerate(plot_original_labels):
-        line =  '%s\t%s\t%s\n' %(olabel, ' ', plot_predicted_labels[i])
-        output.write(line)
-
-
-from scipy.stats import zscore
-
-plot_data_z = stats.zscore(plot_data, axis = 0)
-plot_data_z_thr = np.where(plot_data_z > 4, 4, plot_data_z)
-
-#myMat = plot_data[0:20, 0:16]
-#df = pd.DataFrame(plot_data, index = plot_original_labels[0:20], columns = data_105['feature_list'])
-df = pd.DataFrame(plot_data_z_thr, index = plot_predicted_labels, columns = data_105['feature_list'])
-df = df.apply(zscore, axis=0)
-df = df[feature_list_reorder]
-
-# the black lines are not zero, they are just very close to zero
-sib = sns.clustermap(df, figsize=(6, 150), row_colors= plot_colors, row_cluster=False, col_cluster=False, dendrogram_ratio = [.25,.01], cbar_pos=(.02, .985,.03,.01))
-sns.set(font_scale = .4)
-
-
-figFile = '%sclustering_example_model_trained_ward_16_zcol_thr.pdf' %(plotFolder)
-print(figFile)
-plt.savefig(figFile)
-plt.close('all')
-
-# reordering dataframe columns: 
-sns.heatmap(df)
-plt.show()
-# the black lines are not zero, they are just very close to zero
 
 
 # getting count of diferent labels, from the original to the new one. 
