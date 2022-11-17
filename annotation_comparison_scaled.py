@@ -4,7 +4,7 @@
 # ########################################
 # 0. Initials
 # 1. Unzip and sort the chmm files for each sample
-# 2. Get the summary info for each chrom file (but we dont need it now)
+# 2. Get the summary info for each chrom filebut we dont need it now)
 # 3. do the comparison, save the matrix and plot
 # 4. get the plots - the two heatmaps for now
 #
