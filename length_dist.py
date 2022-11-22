@@ -101,6 +101,164 @@ for runID in runID_list:
     plt.show()
 
 
+# get that median coverage plot
+# General data folder
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+dataSubFolder = 'testBatch105/fromAPI/'
+
+inputFileName = 'all_annInfo_list.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    annInfo_list = pickle.load(f)
+
+# getting the data for plot
+segwayLabels = ['Enhancer_low', 'Enhancer', 'Promoter_flanking', 'Promoter', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent', 'Unclassified']
+coverage_data = {}
+for term in segwayLabels:
+    coverage_data[term] = []
+
+group_coverage_data = {}
+for term in segwayLabels:
+    group_coverage_data[term] = np.zeros(len(annInfo_list))
+
+median_data = {}
+for term in segwayLabels:
+    median_data[term] = []
+
+for ann in annInfo_list:
+
+    index = ann['index']
+
+    clusters = ann['segway_anns']['clusters']
+    totalbp = 0
+    bp_counts = {}
+#    segment_counts = {}
+    for cluster in clusters:
+        totalbp += clusters[cluster].bp_count
+        cluster_label = cluster.split('_')[0]
+        bp_counts[cluster_label] = clusters[cluster].bp_count
+#        segment_counts[cluster_label] = clusters[cluster].region_count
+    
+    # get the coverage: a dictionary from labels to coverage
+    bp_coverage = {}
+    for label in bp_counts:
+        bp_coverage[label] = np.round(bp_counts[label]/totalbp, 4)
+
+    # get the label from label from mnemonics: a dictionary from labels to terms
+    sampleFolderAdd = dataFolder + dataSubFolder + ann['accession'] + '/'
+    label_term_mapping = {}
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+
+
+    # get the median from the length dist: ann array indexed by label
+    accession = ann['accession']
+    runID = accession_IDmap[accession]
+    segment_file = segtoolFolder + runID + '/length_distribution/segment_sizes.tab'
+    mydata = np.loadtxt(segment_file, dtype = float, skiprows=2)
+    medians = mydata[:,3]
+
+
+    # for each label, have a list of items and values
+    for label in label_term_mapping.keys():
+        clusterID = str(index) + '___' + label
+        term = label_term_mapping[label]
+        cov = {clusterID:bp_coverage[label]}
+        coverage_data[term].append(cov)
+        med = (clusterID, medians[int(label)])
+        median_data[term].append(med)
+
+        term_index = segwayLabels.index(term)
+        group_coverage_data[term][index] += cov[clusterID]
+
+
+    # plot the individual label coverage
+    x = range(len(bp_coverage))
+    y = np.zeros(len(x))
+    xticklabels = []
+    xtick_ind = 0
+    total_term_coverage = np.zeros(len(segwayLabels))
+    total_xticks = []
+    for i, term in enumerate(segwayLabels):
+        print(term)
+        for label in label_term_mapping.keys():
+            if label_term_mapping[label] == term:
+                total_term_coverage[i] += bp_coverage[label]
+                y[xtick_ind] = bp_coverage[label]
+                ticklabel = label + '_' + label_term_mapping[label]
+                xticklabels.append(ticklabel)
+                xtick_ind += 1
+
+    # plot the total label coverage
+    fig, axs = plt.subplots(1, 2, figsize=(8,6))
+    #plt.scatter(x, y)
+    axs[0].bar(x,y)
+    axs[0].set_xticks(range(xtick_ind))
+    axs[0].set_xticklabels(xticklabels, rotation=90)
+    axs[0].set_ylim([0,max(total_term_coverage)+.05])
+    axs[0].set_ylabel('genome coverage')
+
+    axs[1].bar(range(len(segwayLabels)), total_term_coverage)
+    axs[1].set_xticks(range(len(segwayLabels)))
+    axs[1].set_xticklabels(segwayLabels, rotation=90)
+    axs[1].set_ylim([0,max(total_term_coverage)+.05])
+    plt.tight_layout()
+
+    figFile = plotFolder + accession + '/genome_coverage.pdf'
+    plt.savefig(figFile)
+
+    plt.show()
+    
+
+
+# do the two plots
+sampleCount = len(annInfo_list)
+
+# group coverage plot
+for i,term in enumerate(segwayLabels[0:11]):
+    y = group_coverage_data[term]
+    y = y[y>0]
+    x = np.random.uniform(-.25, .25, len(y)) + i
+    plt.scatter(x,y , c = 'black', alpha = .3)
+    
+
+plt.xticks(range(len(segwayLabels)-1), segwayLabels[0:11], rotation = 90)
+plt.tight_layout()
+plotFile = plotFolder + 'group_coverage_v02.pdf'
+plt.savefig(plotFile)
+plt.show()
+
+# median plot
+for i,term in enumerate(segwayLabels[0:11]):
+    y = np.zeros(len(median_data[term]))
+    for j, item in enumerate(median_data[term]):
+        y[j] = median_data[term][j][1]
+    x = np.random.uniform(-.25, .25, len(y)) + i
+    plt.scatter(x,y , c = 'black', alpha = .05)
+    
+plt.xticks(range(len(segwayLabels)-1), segwayLabels[0:11], rotation = 90)
+plt.tight_layout()
+plt.show()
+
+# checking the large promoter thing:
+counter = 0
+prom_data = median_data['Promoter']
+for item in prom_data:
+    if item[1]>= 800:
+        print(item[0])
+        counter+=1
+
+
+# coverage plot 
+
+########################################
+# DRAFT    
+########################################
 
 fix, axs = plt.subplots(16, 1, figsize=(6,12))
 fix, axs = plt.subplots(2, 1, figsize=(6,12)) 
