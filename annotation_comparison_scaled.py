@@ -7,6 +7,7 @@
 # 2. Get the summary info for each chrom filebut we dont need it now)
 # 3. do the comparison, save the matrix and plot
 # 4. get the plots - the two heatmaps for now
+# 5. get the plots - with the updated classifier labels 
 #
 #
 ########################################
@@ -595,6 +596,7 @@ for sampleFolder in sampleFolder_list:
     plt.savefig(figFile)
     plt.close('all')
     
+    
     # H: a whole other plot for total track values? 
     
     book = pd.DataFrame(overlap_mat_rowNorm, index = segway_cluster_list, columns = chmm_class_list)
@@ -609,6 +611,263 @@ for sampleFolder in sampleFolder_list:
 
     # add the count and other info
     
+#########################################
+# 5. get the plots - with the updated classifier labels 
+#########################################
+
+segwayLabels = ['Enhancer_low', 'Enhancer', 'Promoter_flanking', 'Promoter', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent', 'Unclassified']
+
+track_order = [ 'H3K4me3', 'H3K27ac', 'H3K4me1', 'H3K36me3', 'H3K27me3', 'H3K9me3', 'CTCF', 'DNase-seq', 'ATAC-seq', 'POLR2A', 'EP300']
+
+inputFile = dataFolder + dataSubFolder + 'biosample_tissue_info.pkl'
+with open(inputFile, 'rb') as f:
+    tissue_info = pickle.load( f)
+
+inputFileName = 'all_annInfo_list.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    annInfo_list = pickle.load(f)
+
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/testBatch105/'
+for ann in annInfo_list:
+    
+    index = ann['index']
+    print(index)
+    sampleFolder =  ann['accession']
+    
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/'
+
+    # load the updated mnemonics
+    label_term_mapping = {}
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+    
+    # load the overlap dataframe
+    sampleFolderAdd = dataFolder + dataSubFolder + sampleFolder + '/' 
+    fileList = list(glob.iglob(sampleFolderAdd + 'overlap_segway_*_chmm_*.pkl', recursive = True))
+
+    if len(fileList) == 0:
+        print('no overlap file')
+        continue
+    
+    inputFile = fileList[0]
+
+    with open(inputFile, 'rb') as f:
+        overlap_df = pickle.load(f)
+
+    # do the normalization:
+    # sum of each column or row will be the total bp for chmm/segway. total sum of columns should equal total soum of rows.
+    overlap_mat = overlap_df.to_numpy()
+
+    # total bp count that is covered by both annotations
+    total_bp = np.sum(overlap_mat)
+
+    # fraction of base pairs in each label to the total bp count
+    chmm_labelFraction = np.sum(overlap_mat, axis = 0) / total_bp
+    segway_labelFraction = np.sum(overlap_mat, axis = 1) / total_bp
+
+    # get the observed versus the expected fraction
+    expectedFraction_mat = np.zeros(overlap_mat.shape)
+    for i in range(len(segway_labelFraction)):
+        for j in range(len(chmm_labelFraction)):
+            expectedFraction_mat[i][j] = segway_labelFraction[i] * chmm_labelFraction[j]
+
+    observedFraction_mat = np.zeros(overlap_mat.shape)
+    for i in range(len(segway_labelFraction)):
+        for j in range(len(chmm_labelFraction)):
+            observedFraction_mat[i][j] = overlap_mat[i][j] / total_bp
+
+    obs_exp = np.divide(observedFraction_mat, expectedFraction_mat)
+
+    # get the normalized value
+    overlap_mat_colNorm = overlap_mat / np.sum(overlap_mat, axis=0)[np.newaxis, :] # chmm
+    overlap_mat_rowNorm = overlap_mat / np.sum(overlap_mat, axis=1)[:, np.newaxis] # segway
+
+    # get the axis labels
+    segway_cluster_list_old = list(overlap_df.index.values)
+    chmm_class_list = list(overlap_df.columns.values)
+
+    # change segway_cluster_list_updated based on the mnemonics
+    segway_cluster_list = []
+    for cluster in segway_cluster_list_old:
+        label = cluster.split('_')[0]
+        term = label_term_mapping[label]
+        segway_cluster_list.append(label + '_' + term)
+
+    # reorder the cluster list
+    segway_cluster_list_reordered = []
+    for label in segwayLabels:
+        for cluster in segway_cluster_list:
+            if cluster.split('_')[1] == label:
+                segway_cluster_list_reordered.append(cluster)
+
+    # add the ratio to the axis labels
+    segwayAxis_list = []
+    for i, cluster in enumerate(segway_cluster_list):
+        segwayAxis_list.append(cluster + '_' + str(round(segway_labelFraction[i], 4)))
+
+
+    segwayAxis_list_reordered = []
+    for label in segwayLabels:
+        for axis in segwayAxis_list:
+            if axis.split('_')[1] == label:
+                segwayAxis_list_reordered.append(axis)
+
+    chmmAxis_list = []
+    for i, chmmclass in enumerate(chmm_class_list):
+        chmmAxis_list.append(chmmclass + '_' + str(round(chmm_labelFraction[i], 4)))
+
+    # plot the three heatmaps
+
+    fig, axs = plt.subplots(2, 2, figsize=(12,8))
+
+    obs_exp_log = np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0))
+    obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
+    
+    # heatmap 1: the observed over expected ratio
+    h1 = pd.DataFrame(obs_exp_log, index = segwayAxis_list, columns = chmmAxis_list)
+    h1 = h1.reindex(segwayAxis_list_reordered)
+    #cmap = sns.diverging_palette(240, 10, s=100, l=30, as_cmap=True)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g1 = sns.heatmap(h1, center = 0,cmap=cmap, ax=axs[0,0])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g1.set_title('ratio - log (observed to expected)')
+    #g1.set_xticklabels(g1.get_xticklabels(), rotation=45)
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    sns.set(font_scale=.8)
+    plt.tight_layout()
+    #plt.title('ratio - observed vs expected')
+    #plt.show()
+
+    # h2: the segway ratio covered
+    h2 = pd.DataFrame(overlap_mat_rowNorm, index = segwayAxis_list, columns = chmmAxis_list)
+    h2 = h2.reindex(segwayAxis_list_reordered)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g2 = sns.heatmap(h2, center = 0,cmap=cmap, ax=axs[0,1])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g2.set_title('ratio of bp overlap - Segway')
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+
+    #plt.show()
+
+    # h3: track average signal (for the tracks in the thing only)
+    # get the mapping from the cluster label , get the mapping from track assay, build the matrix and do the meeting
+    mapping_file = sampleFolderAdd + 'trackname_assay.txt'
+    signal_file = sampleFolderAdd + 'signal_distribution.tab.txt'
+
+    # read the mapping_file
+    track_assay_map = {}
+    inputTrack_list = [] # list of the track type for the sample 
+    with open(mapping_file) as inputFile:
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            inputTrack_list.append(fields[1])
+
+    # reorder the input track list
+    inputTrack_list_ordered = []
+    for track in track_order:
+        if track in inputTrack_list:
+            inputTrack_list_ordered.append(track)
+
+    # getting the segway input track count
+    segway_track_count = 0
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline().split()[0]
+        previousCluster_int = inputFile.readline().split()[0]
+        cluster_int = previousCluster_int
+        while previousCluster_int == cluster_int:
+            previousCluster_int = cluster_int
+            cluster_int = inputFile.readline().split()[0]
+            segway_track_count += 1
+
+    
+    cluster_class_map = {}
+    for cluster_label in segway_cluster_list:
+        int_label = cluster_label.split('_')[0]
+        cluster_class_map[int_label] = cluster_label
+
+
+    # filling the signal_dist_mat for the plot 
+    signal_dist_mat = np.zeros((len(segway_cluster_list), segway_track_count))
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline()
+        for line in inputFile:
+            fields = line.strip().split()
+            track = track_assay_map[fields[1]]
+            track_ind = inputTrack_list_ordered.index(track) # track list order
+            segway_cluster = cluster_class_map[fields[0]]
+            cluster_ind = segway_cluster_list.index(segway_cluster) # cluster list order
+            signal_dist_mat[cluster_ind][track_ind] = round(float(fields[2]), 4)
+            
+    z_signal_dist_mat = stats.zscore(signal_dist_mat, axis = 0)
+
+    # make the dataframe
+    h3 = pd.DataFrame(z_signal_dist_mat, index = segway_cluster_list, columns = inputTrack_list_ordered)
+    h3 = h3.reindex(segway_cluster_list_reordered)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g3 = sns.heatmap(h3, center = 0,cmap=cmap, ax=axs[1,0])
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g3.set_title('mean track value - zscore')
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+    #plt.show()
+
+    # h4: probs for each segway label
+    #fig, axs = plt.subplots(2, 2, figsize=(12,8))
+
+    # reorder the dataframe 
+    
+    probs_file = sampleFolderAdd + 'probs_v02.csv'
+    #if sampleFolder == 'ENCSR614XBK':
+    #    print('no probs')
+    #    continue
+    #h4 = pd.read_table(probs_file)
+    h4 = pd.read_csv(probs_file)
+    # h4.drop('label', inplace=True, axis=1)
+    h4.drop(columns=h4.columns[0], inplace=True, axis=1)
+    for int_label in list(cluster_class_map.keys()):
+        h4.rename(index={int(int_label) : cluster_class_map[int_label]}, inplace=True)
+        
+    #fig, axs = plt.subplots(2, 2, figsize=(12,8))
+    #h4 = h4.reindex(index = segway_cluster_list)
+    h4 = h4.reindex(segway_cluster_list_reordered)
+    #h4 = h4.reindex(columns = segwayLabels[0:8])
+    sns.set(font_scale=1)
+    cmap = sns.diverging_palette(240, 10, s=80, l=30, as_cmap=True)
+    g4 = sns.heatmap(h4, center = 0,cmap=cmap, ax=axs[1,1], yticklabels=True)
+    #g1.set_ylabel('this')
+    #g1.set_xlabel('that')
+    g4.set_title('probs - classifier')
+    #plt.ylabel('segway')
+    #plt.ylabel('chmm')
+    #plt.subplots_adjust(left=.075, right=.95, top=.9, bottom=.25)
+    plt.tight_layout()
+
+    plt.subplots_adjust( top=.9)
+
+    fig.suptitle(sampleFolder + ' - ' +tissue_info[sampleFolder][0] + ' - ' + tissue_info[sampleFolder][1])
+    #plt.show()
+    plotFolder_add = plotFolder + sampleFolder + '/'
+    figFile = plotFolder_add + 'the_panel_03.pdf'
+    print(figFile)
+    plt.savefig(figFile)
+    plt.close('all')
 
 # the plot can be made with the background percentage of overlap as normalization. Can we tell who is favoring who? I need a panel of plots for each thing, also the track value plots.
 
