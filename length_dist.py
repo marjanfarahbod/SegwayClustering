@@ -34,23 +34,27 @@ segtoolFolder = dataFolder + 'testBatch105/all_segtools/'
 runID_list = list(runID_map.keys())
 
 for runID in runID_list:
-
     
     accession = runID_map[runID]
     
     lengthFile = segtoolFolder + runID + '/length_distribution/length_distribution.tab'
 
-    mydata = np.loadtxt(lengthFile, dtype = int, skiprows=1)
+    #mydata = np.loadtxt(lengthFile, dtype = int, skiprows=1)
+    #print('length file read')
     mydata = pd.read_csv(lengthFile, sep='\t')
-
     print('length file read')
 
     totalbpCount = mydata['length'].sum(axis=0)
 
+    segmentSizesFile = segtoolFolder + runID + '/length_distribution/segment_sizes.tab'
+    segment_stats = pd.read_csv(segmentSizesFile, sep='\t')
+    
+    labelCount = segment_stats.shape[0]-1
     mybins = np.linspace(1.9,6.1, 42)
-    fix, axs = plt.subplots(16, 1, figsize=(4,10)) 
-    for i in range(16):
+    fig, axs = plt.subplots(labelCount, 1, figsize=(4,10))
+    for i in range(labelCount):
 
+        print(i)
 
         sib = mydata.loc[mydata['label'] ==i]
         
@@ -92,7 +96,7 @@ for runID in runID_list:
     ticks = [2, 2.27, 2.44, 2.56, 2.66, 2.76, 2.87, 2.97, 4, 5]
     labels=['100', '200', '300', '400', '500','600','700-800','900-1000', '1e4', '1e5']
     #axs[15].set_xticks(ticks)
-    axs[15].set_xticklabels(labels, rotation=90)
+    axs[labelCount-1].set_xticklabels(labels, rotation=90)
     plotFile = plotFolder + accession + '/length_dist_hist.pdf'
     plt.savefig(plotFile)
     #plt.tight_layout()
