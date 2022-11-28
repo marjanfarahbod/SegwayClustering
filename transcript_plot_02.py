@@ -61,9 +61,13 @@ del geneListsAndIDs
 annAccessionList = list(annMeta.keys())
 
 for annAccession in annAccessionList:
+
+    index = accession_index_map[annAccession]
     
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
     # get the label from label from mnemonics: a dictionary from labels to terms
-    sampleFolderAdd = dataFolder + dataSubFolder + ann['accession'] + '/'
     label_term_mapping = {}
     mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
     with open(mnemonics_file, 'r') as mnemonics:
@@ -72,12 +76,6 @@ for annAccession in annAccessionList:
             label = line.strip().split()[0]
             term = line.strip().split()[1]
             label_term_mapping[label] = term
-
-
-    index = accession_index_map[annAccession]
-    
-    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
-    print(sampleFolderAdd)
     
     expFile = 'defaultExp_5kg_expSummary.pkl'
     inputFile = sampleFolderAdd + expFile
@@ -89,9 +87,6 @@ for annAccession in annAccessionList:
         print('no transcript data for this file')
         continue
 
-    # plot the expmat
-
-    # get the labels for clusterMats
 
     # load segway cluster info
     segwayBedAccession = annMeta[annAccession]['bedFile'][0:-4]
@@ -100,62 +95,29 @@ for annAccession in annAccessionList:
     with open(annSummaryFile, 'rb') as f:
         summaryAnnotation = pickle.load(f)
 
-
-    
     # sorting the cluster labels for segway (this is the order used for the cluster matrix, see QC transcript code file)
     clusters = summaryAnnotation['clusters']
     clusterList = list(clusters.keys())
 
+    # loading the cluster list for the transcript data based on how it was saved in QC transcript code file
     order_file = sampleFolderAdd + 'defaultExp_5kg_expSummary_clusterOrder.pkl'
     with open(order_file, 'rb') as f:
-        cluster_ordered_list = pickle.load( f)
+         cluster_ordered_list = pickle.load(f)
 
-    
-    sortedClusterList = []
-    #cluster_order = [] # for saving the cluster order, I did it once here and it is saved, so it is commented
-    for label in segwayLabels:
-        #print(label)
-        for item in clusterList:
-            #print(item)
-            if item.split('_')[1] == label:
-                sortedClusterList.append(item)
-                #cluster_order.append(item.split('_')[0]) # for saving the cluster order, I did it once here and it is saved, so it is commented
-
-    '''
-    ## for saving the cluster order, I did it once here and it is saved, so it is commented
-    #cluster_expSummary_order = cluster_order
-    #order_file = sampleFolderAdd + 'defaultExp_5kg_expSummary_clusterOrder.pkl'
-    #with open(order_file, 'wb') as f:
-        #pickle.dump(cluster_expSummary_order, f)
-    '''
-
-    
-    '''
-    # sorting based on the cluster number -- can't do it for now, I need to change the order of the transcript file too
-    for label in range(15):
-        print(label)
-        for item in clusterList:
-            print(item)
-            if item.split('_')[0] == str(label):
-                sortedClusterList.append(item)
-    '''         
-
-    # updating the sortedClusterList:
+    # get the terms for the clusters
     updatedClusterList = []
-    for label in sortedClusterList:
-        labelID = label.split('_')[0]
-        newID = str(index) + '___' + str(labelID)
-        newlabel_index = classifier_labels['cluster_list'].index(newID)
-        newlabel = newID + '_' + classifier_labels['interpretation_term'][newlabel_index]
-        updatedClusterList.append(newlabel)
-
-    # preferred order of the updatedClusterList, for now it is based on the label grouping 
+    for clusterID in cluster_ordered_list:
+        term = label_term_mapping[clusterID]
+        label_term = clusterID + '_' + term
+        updatedClusterList.append(label_term)
+    
     updatedClusterList_reordered = []
+    #cluster_order = [] # for saving the cluster order, I did it once here and it is saved, so it is commented
     for label in segwayLabels:
         #print(label)
         for item in updatedClusterList:
             #print(item)
-            if item.split('_')[-1] == label:
+            if item.split('_')[1] == label:
                 updatedClusterList_reordered.append(item)
                 #cluster_order.append(item.split('_')[0]) # for saving the cluster order, I did it once here and it is saved, so it is commented
 
@@ -166,10 +128,16 @@ for annAccession in annAccessionList:
     fractions = np.zeros([clusterCount])
     total_bp = 0
 
-    for i, cluster in enumerate(sortedClusterList):
-        print(clusters[cluster].bp_count)
-        fractions[i] = clusters[cluster].bp_count
-        total_bp += clusters[cluster].bp_count
+    clusterID_bp_count = {}
+    for cluster in clusters:
+        clusterID = cluster.split('_')[0]
+        clusterID_bp_count[clusterID] = clusters[cluster].bp_count
+
+    for i, cluster in enumerate(updatedClusterList):
+        clusterID = cluster.split('_')[0]
+        print(clusterID_bp_count[clusterID])
+        fractions[i] = clusterID_bp_count[clusterID]
+        total_bp += clusterID_bp_count[clusterID]
 
     fractions = fractions / total_bp
 
@@ -187,7 +155,6 @@ for annAccession in annAccessionList:
     zeroExpCount = sum(i == 0 for i in allExp)
     lowMedExpCount = sum(i > 0 and i < 1 for i in allExp)
     highExpCount = sum(i > 1 for i in allExp)
-
 
     fig, axs = plt.subplots(1, 3, figsize =(12, 6), gridspec_kw={'width_ratios':[1,1,1.2]})
     xticks = [30, 130]
@@ -252,10 +219,9 @@ for annAccession in annAccessionList:
 
     fig.suptitle(annAccession + ' - ' + tissue_info[annAccession][0] + ' - ' + tissue_info[annAccession][1], fontsize = 12)
 
-
     # plt.show()
     plotFolder_add = plotFolder + annAccession + '/'
-    figFile = plotFolder_add + 'expression_transcript_02.pdf'
+    figFile = plotFolder_add + 'expression_transcript_03.pdf'
     print(figFile)
     plt.savefig(figFile, bbox_inches='tight')
     plt.close('all')
