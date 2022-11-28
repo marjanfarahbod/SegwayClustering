@@ -148,6 +148,9 @@ with open(gftFile, 'r') as coors:
 fileName = dataFolder + 'testBatch/coorsFile.pkl'
 coors_frame.to_pickle(fileName)
 
+with open(fileName, 'rb') as f:
+   coors = pickle.load(f)
+
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # 0.2 preprocess and QC for the RNA-seq file
