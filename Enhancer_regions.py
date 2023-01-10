@@ -6,6 +6,9 @@
 # 2. First region analyses 
 # 2.1 Getting the regions
 # 2.2 Exploratory analyses for the region
+# 3. Chr vector, adding all the samples and some analyses there
+# 4. peak identification
+# 5. Peak label examination 
 
 #########################################
 # 0. Initials
@@ -21,6 +24,8 @@ dataSubFolder = 'testBatch105/fromAPI/'
 inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
 with open(inputFile, 'rb') as f:
     annMeta = pickle.load(f)
+
+sample_count = len(annMeta)
 
 annAccessionList = list(annMeta.keys())
 annAccession = annAccessionList[104]
@@ -258,6 +263,11 @@ result['sample_belong'] = sample_belong
 file = dataFolder + 'enhancer_regions_v1.pkl'
 with open(file, 'wb') as f:
     pickle.dump(result, f)
+
+file = dataFolder + 'enhancer_regions_v1.pkl'
+with open(file, 'rb') as f:
+    result = pickle.load(f)
+
 # <<< saving the v0 output
 
 
@@ -305,6 +315,7 @@ plt.show()
 
 print(sum(peaks<2))
 temp = (peaks<2) # WIDE peaks
+temp_ind = np.where(peaks <2)
 temp_cov = region_coverage[temp,]
 sns.heatmap(temp_cov[0:100,])
 plt.show()
@@ -427,9 +438,500 @@ select_region_coverage = region_coverage[select_regions_ind,]
 sns.heatmap(select_region_coverage[1:200,])
 plt.show()
 
+#########################################
+# 3. Chr vector, adding all the samples and some analyses there
+#########################################
+
+# 3.1 adding all the smaples, geting the count of reg for each sample
+########################################
+
+# 58597100
+# 59000000
+
+# arraylength
+chr_length = 590000
+
+chr_coverage = np.zeros(chr_length)
+max_ind = 0
+seg_end = 0
+# do the analysis
+for annAccession in annAccessionList:
+
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
+    index = accession_index_map[annAccession]
+    print(index)
+
+    if(seg_end > max_ind):
+        max_ind = seg_end
+
+    out = sampleFolderAdd + 'chr19_enh.bed'
+    with open(out, 'r') as enFile:
+        #line = enFile.readline()
+        #print(line)
+
+        #fields = line.split()
+        #center = int(fie)
+        for line in enFile:
+            sample_line_count +=1
+            fields = line.split()
+            seg_start = int(fields[1][0:-2])
+            seg_end = int(fields[2][0:-2])-1
+            chr_coverage[seg_start:seg_end] += 1
 
 
-# TODO: get the location of the peaks, total number of the peaks etc. 
+if(seg_end > max_ind):
+    max_ind = seg_end
+
+chr_coverage = chr_coverage[0:max_ind]
+
+# 3.2 coverage for count of repeats throught the chromosome
+######################################### 
+# what percentage is zero?
+print(sum(chr_coverage == 0)/max_ind)
+
+# what percentage is one, or two:
+print(sum(chr_coverage < 3)/max_ind)
+
+coverage_count = np.zeros(sample_count)
+coverage_ratio = np.zeros(sample_count)
+s_coverage = chr_coverage
+for i in range(sample_count):
+    print(i)
+    coverage_count[i] = sum(s_coverage == i)
+    coverage_ratio[i] = sum(s_coverage == i)/max_ind
+    s_coverage = s_coverage[s_coverage>i]
+
+plt.plot(coverage_count)
+plt.show()
+
+
+# 3.3 coverage and coverage of the overlap for each label
+########################################
+# this is useful to idnetify odd labels, those which dwel in areas with lower overlap
+# ideally, from each label we expect a certain coverage of the overlaps. 
+
+# first, getting count of labels for each sample, for allocation
+
+en_label_count = np.zeros(sample_count)
+en_label_dict = {}
+for annAccession in annAccessionList:
+
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
+    index = accession_index_map[annAccession]
+    print(index)
+    # load the mnomics, and extract the enhancer labels for mnemonics
+    label_term_mapping = {}
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.split()[0]
+            term = line.split()[1]
+            label_term_mapping[label] = term
+
+    enLabels = []
+    for label in label_term_mapping.keys():
+        if 'Enhancer' in label_term_mapping[label]:
+            enLabels.append(label)
+
+    en_label_count[index] = len(enLabels)
+    en_label_dict[index] = enLabels
+
+sib = np.sort(en_label_count)
+plt.plot(sib)
+plt.show()
+
+# NOTE: I used to do it for up to 20 overlaps, then I just switched to 85 for the record. However, 20 is good enough since most labels reside mostly in areas with less than 20 overlaps. 
+# getting the indices in the chromosome for each count of overlap, we do it for up to 20
+overlap_inds = {}
+for i in range(85):
+    print(i)
+    overlap_inds[i] = np.where(chr_coverage == i+1)
+
+
+en_label_count # for each sample, it has count of enhancer labels
+en_label_dict # for each sample, it has list of enhancer labels
+chr_coverage # to the length of the chromosome
+total_label = int(sum(en_label_count))
+label_coverages = np.zeros((total_label, 85)) # for each label, what portion is covered with the bps with overlap 0 to 20 
+label_ind = 0 # walking on the matrix 
+label_IDs = {} # for the ind (label_ind), the sample and the name of the label
+for annAccession in annAccessionList:
+
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
+    index = accession_index_map[annAccession]
+    print(index)
+
+    if en_label_count[index] == 0:
+        continue
+
+    # get the coverage for each of the labels in the sample
+    temp_labels_coverage = np.zeros((int(en_label_count[index]), len(chr_coverage)))
+    # getting the list of the labels for the sample
+    en_label_list = en_label_dict[index]
+
+    # getting the chromosome coverage for each label
+    out = sampleFolderAdd + 'chr19_enh.bed'
+    with open(out, 'r') as enFile:
+        #line = enFile.readline()
+        #print(line)
+
+        #fields = line.split()
+        #center = int(fie)
+        for line in enFile:
+            fields = line.split()
+            seg_start = int(fields[1][0:-2])
+            seg_end = int(fields[2][0:-2])-1
+            label = fields[3].split('_')[0]
+            label_sample_ind = en_label_list.index(label) # according to this list we go
+            temp_labels_coverage[label_sample_ind, seg_start:seg_end] +=1 
+
+
+    # get the coverage of the label for each count of overlap
+    temp_coverage = np.zeros((len(en_label_list), 85))
+    for i in range(len(overlap_inds)): 
+        ois = overlap_inds[i][0]
+        for j in range(len(en_label_list)):
+            temp_coverage[j, i] = np.sum(temp_labels_coverage[j, ois])
+
+    for i in range(len(en_label_list)):
+        label_IDs[label_ind] = (index, en_label_list[i]) # the sample and the name of the label
+        label_coverages[label_ind,] = temp_coverage[i,]
+        label_ind += 1 # walking on the matrix 
+
+
+# get the percentage of each overlap coverage for each of teh labels [1 to 20]
+norm_lc = np.zeros(label_coverages.shape)
+for i in range(total_label):
+    norm_lc[i,] = label_coverages[i,]/sum(label_coverages[i,])
+
+sns.heatmap(norm_lc)
+plt.show()
+
+countratio_lc = np.zeros(label_coverages.shape)
+for i in range(20):
+    countratio_lc[:,i] = label_coverages[:, i]/coverage_count[i+1]
+
+sns.heatmap(countratio_lc[:,0:90])
+plt.show()
+
+# get the ratio of label residing in non-significant regions
+kado = np.sum(norm_lc[:, 0:15], axis = 1)
+plt.plot(np.sort(kado))
+plt.show()
+
+print(np.where(kado >.60))
+
+x = np.random.uniform(-.5, .5, len(kado))
+plt.scatter(x, kado, alpha=.2)
+plt.xlim((-5,5))
+plt.show()
+
+# TODO: here find the odd labels
+
+# each label, based on its coverage and the coverage of the repeat's coverage, has an odd of having overalp with repeat regions. Whichever label that is behaving oddly, missing or gaining too much, is of interest.
+# TODO: catch this. But also do the code for the coverage stuff. 
+
+# basically, I can keep a record of segments with various repeats, and for each segment, its repeat count and also which samples contributed. Then at each level, find the "odd" set of labels that appear together.
+
+# here lets find who is this 5 repeat labels:
+print(coverage_ratio[0:10])
+sib = norm_lc[:, 5]
+kado = np.where(sib > .17)
+print(sib[kado])
+for i in kado[0]:
+    print(label_ID[i])
+# NOTE: the 5 repeats are promoters and NOT enhancers.
+
+sib = norm_lc[:, 0] 
+kado = np.where(sib > .10)
+print(sib[kado])
+for i in kado[0]:
+    print(label_ID[i])
+
+# another factor is that how much of the label is dwelling in the lower coverage regions, and how much of it in the significant regions - that doesn't necessarily mean the label is wrong, rather than it has sth special going on
+
+print(sum(coverage_ratio[0:10])) # about 76% is covered by this. so lets see how it looks for labels
+
+sib = np.sum(norm_lc[:, 0:3], axis = 1)
+halva = np.sort(sib)
+plt.plot(halva)
+plt.show()
+
+kado = np.where(sib>.2)
+for i in kado[0]:
+    print(label_ID[i])
+    #print(sib[i])
+    #print(norm_lc[i,0:4])
+
+
+# TODO: prune the odd labels based on the coverage
+
+# contribution of each label to the low coverage regions (can we detect off labels, or off samples, or all that is hapening there is just expected distribution)
+
+########################################
+# 4. peak identification
+########################################
+
+# coverage obtained, now the peaks. My assumption is that most peaks narrow down significantly before visiting another peak.
+book = np.zeros(1000)
+book[0] = chr_coverage[0]
+for i in range(999):
+    book[i+1] = book[i] + chr_coverage[i+1]
+
+plt.plot(book)
+plt.show()
+# a peak is where the the value is higher or equal in the neighbouring indices. Therefore, some peaks can be wide and some can be narrow.
+# a peak region is idenfied by a region starting with the increasing values towards a peak, and decreasing from it. So as soon as we pass 5 overlaps, we start counting. This is not covering the significance level by any means, but rather keeps the overlap. I keep for each peak: max, start, end. We will fill out the labels later.
+
+# my guess is that we will not have more than 50k peaks.
+peak_thr = 10
+peak_sig_thr = 15
+peakInfo = np.zeros((20000, 3))
+in_peak_region = False
+peak_counter = 0
+max_peak = 0
+peak_starts = 0
+peak_ends = 0
+for i in range(1,len(chr_coverage)):
+    #print(i)
+    #print(peak_counter)
+    #pprint('____')
+    if chr_coverage[i] < peak_thr:
+        if in_peak_region:
+            #record the peak
+            if max_peak >= peak_sig_thr:
+                peak_ends = i-1
+                peakInfo[peak_counter, 0] = peak_starts
+                peakInfo[peak_counter, 1] = peak_ends
+                peakInfo[peak_counter, 2] = max_peak
+                peak_counter +=1;
+                # reset the peak
+                in_peak_region = False
+                max_peak = 0
+            else:
+                in_peak_region = False
+                max_peak = 0
+        continue
+
+    if chr_coverage[i] >= peak_thr:
+        if in_peak_region:
+            if chr_coverage[i] > max_peak:
+                max_peak = chr_coverage[i]
+        else:
+            # initiate peak
+            in_peak_region = True
+            peak_starts = i
+            max_peak = chr_coverage[i]
+
+peakInfo = peakInfo[0:peak_counter, ]
+
+peak_length = peakInfo[:, 1] - peakInfo[:, 0]
+
+plt.hist(peak_length)
+plt.show()
+
+high_length_ind = np.where(peak_length>20)
+print(len(high_length_ind[0]))
+print(peakInfo[3386,])
+peakInd = high_length_ind[0][0]
+ps = int(peakInfo[peakInd, 0])
+pe = int(peakInfo[peakInd, 1])
+kado = np.mean(chr_coverage[ps:pe])
+print(kado)
+plt.plot(chr_coverage[ps-400:pe+400])
+plt.show()
+
+hl_means = np.zeros(len(high_length_ind[0]))
+for i in range(len(high_length_ind[0])):
+    peakInd = high_length_ind[0][i]
+    ps = int(peakInfo[peakInd, 0])
+    pe = int(peakInfo[peakInd, 1])
+    hl_means[i] = np.mean(chr_coverage[ps:pe])
+    
+plt.hist(hl_means)
+plt.show()
+
+other_length_ind = np.where(peak_length<=20)
+# distribution of peak length:
+plt.hist(peak_length[other_length_ind[0]])
+plt.show()
+ol_means = np.zeros(len(high_length_ind[0]))
+for i in range(len(high_length_ind[0])):
+    peakInd = high_length_ind[0][i]
+    ps = int(peakInfo[peakInd, 0])
+    pe = int(peakInfo[peakInd, 1])
+    hl_means[i] = np.mean(chr_coverage[ps:pe])
+    
+plt.hist(hl_means)
+plt.show()
+
+
+# distance between peaks
+peak_dis = np.zeros(peakInfo.shape[0])
+for i in range(1,len(peak_dis)):
+    peak_dis[i-1] = peakInfo[i,0] - peakInfo[i-1, 1]
+
+print(sum(peak_dis<2))
+peak_dis[peak_dis > 200] = 200
+plt.hist(peak_dis)
+plt.show()
+
+sib = np.cumsum(peak_dis)
+plt.plot(sib)
+plt.show()
+
+plt.plot(chr_coverage[2459:6000])
+plt.show()
+
+####
+sib = np.sort(chr_coverage)
+plt.plot(sib)
+plt.show()
+
+plt.plot(chr_coverage[0:10000])
+plt.show()
+
+print(len(high_length_ind[0]))
+high_length_max = peakInfo[high_length_ind, 2]
+
+plt.hist(high_length_mean[0])
+plt.show()
+
+#########################################
+# 5. Peak label examination 
+#########################################
+print(peakInfo.shape)
+label_IDs
+
+label_ID_reverse_dic = {}
+for label in label_IDs:
+    ID = label_IDs[label]
+    label_ID_reverse_dic[ID] = label
+
+# peak presence
+peakCount = peakInfo.shape[0] 
+labelCount = label_coverages.shape[0]
+peak_presence = np.zeros((peakCount, labelCount))
+
+peak_presence_sample = np.zeros((peakCount, sample_count))
+
+# walk through the labels and lines, fill them as fit
+for annAccession in annAccessionList:
+
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
+    index = accession_index_map[annAccession]
+    print(index)
+
+    if en_label_count[index] == 0:
+        continue
+
+    # get the coverage for each of the labels in the sample
+    # temp_peak_coverage = np.zeros((int(en_label_count[index]), peakCount))
+    # getting the list of the labels for the sample
+    # en_label_list = en_label_dict[index]
+
+    # getting the chromosome coverage for each label
+    peak_walk = 0
+    out = sampleFolderAdd + 'chr19_enh.bed'
+    with open(out, 'r') as enFile:
+
+        # we go through lines (segments), as long as the seg_start < peak_end
+        # for each step, we check if segment and peak overlap. once overalp, we move fw on the peaks as long as they do.
+
+        # then we move fw on the peak, as long as seg_start < peak_end
+
+        # get the first peak
+        current_peak = peakInfo[peak_walk,:]
+        peak_start = current_peak[0]
+        peak_end = current_peak[1]
+
+        line = enFile.readline()
+        line = enFile.readline()
+        print(line)
+        fields = line.split()
+        seg_start = int(fields[1][0:-2])
+        seg_end = int(fields[2][0:-2])-1
+        label = fields[3].split('_')[0]
+
+        while seg_start > peak_end: # taking the peak fw
+            peak_walk +=1
+            current_peak = peakInfo[peak_walk,:]
+            peak_start = current_peak[0]
+            peak_end = current_peak[1]
+            
+
+        while ((seg_start < peak_end) or (peak_walk < peakCount-1)) and peak_walk != peakCount-1: # while there is a peak ahead of a segment
+            # print(peak_walk)
+            if not((peak_start > seg_end) or (peak_end < seg_start)): # if overlap, record the segment, move the peak fw until passed the segment (so seg_start < peak_end)
+                # get label index
+                label_ID = (index, label)
+                l_index = label_ID_reverse_dic[label_ID]
+                # add segment to the peak
+                peak_presence[peak_walk, l_index] = 1
+                peak_walk +=1  # move one peak fw
+                #print(peak_walk)
+                peak_presence_sample[peak_walk, index] = 1
+                current_peak = peakInfo[peak_walk,:]
+                peak_start = current_peak[0]
+                peak_end = current_peak[1]
+
+                # while overlap: move peak fw, add segment to the peak
+                while not((peak_start > seg_end) or (peak_end < seg_start)) and peak_walk < (peakCount-1):
+
+                    peak_presence[peak_walk, l_index] = 1
+                    peak_walk +=1  # move one peak fw
+                    print(peak_walk)
+
+                    current_peak = peakInfo[peak_walk,:]
+                    peak_start = current_peak[0]
+                    peak_end = current_peak[1]
+
+                
+            else: # not overlap, seg_start < peak_end
+                # move one segment fw
+                try:
+                    line = enFile.readline()
+                    fields = line.split()
+                    seg_start = int(fields[1][0:-2])
+                    seg_end = int(fields[2][0:-2])-1
+                    label = fields[3].split('_')[0]
+                except IndexError:
+                    print('end of file')
+                    break
+                
+
+                while (seg_start > peak_end) and peak_walk < (peakCount-1):
+                    # move one peak fw
+                    peak_walk +=1  # move one peak fw
+                    current_peak = peakInfo[peak_walk,:]
+                    peak_start = current_peak[0]
+                    peak_end = current_peak[1]
+
+
+print(peak_presence.shape)
+method = 'ward'
+sib = sns.clustermap(peak_presence[1:4000,], cmap='binary')
+plt.show()
+
+method = 'ward'
+sib = sns.clustermap(peak_presence_sample[1:4000,], cmap='binary')
+plt.show()
+reo_samples = sib.dendrogram_col.reordered_ind
+
+# TODO: make decision about mislabeld labels
+# TODO: train the classifier and get the new mnemonics
+# TODO: do the clustering and get the labels for samples 
+
+# print the indices. 
 
 # TODO: that sanity check: which labels do not exist in any of the peaks. By theory, the low enhancers should not exsit in the peaks. But we don't know.
 
@@ -445,6 +947,32 @@ with open(file, 'r') as input:
     for line in input:
         fields = line.split()
         diff += int(fields[2]) - int(fields[1])
+
+
+
+        #line = enFile.readline()
+        #print(line)
+
+        #fields = line.split()
+        #center = int(fie)
+        for line in enFile:
+            fields = line.split()
+            seg_start = int(fields[1][0:-2])
+            seg_end = int(fields[2][0:-2])-1
+            label = fields[3].split('_')[0]
+
+            while 
+                # while the peak and segment overlap
+                # todo: add segmen to the peak,
+                # move to the next peak
+
+                
+            # get the index of the label, if it is within the peak range, to fill the coverage matrix
+
+
+            # do the double coverage code 
+### TODO: we are here ######
+
 
 # Enhancer around genes
 #########################################
