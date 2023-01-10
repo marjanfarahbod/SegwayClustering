@@ -178,11 +178,12 @@ for i in range(len(reg_list)):
 #order_mat = np.zeros((120,8))
 #remain = 0
 #final_order = np.zeros(len(reg_region_mat))
+maxNodeCount = 250
 ratio_thr = int(.01*2664)+1
 #layer, label, parent, parentind, count
-branches = np.zeros((5, 120)) - 1
+branches = np.zeros((5, maxNodeCount)) - 1
 branches[:, 0] = [0, 7, -1, -1, 2664]
-walked = np.zeros(120) - 1
+walked = np.zeros(maxNodeCount) - 1
 nci = 1 # node walk index, walks on - root is already filled
 layer = 1 # initial - root is zero
 parent = 0 # initial - for layer 1
@@ -196,7 +197,7 @@ visited_leaf = []
 walked_node = []
 select_label_ind = 0
 max_layer = colCount - 3 # it was 7 before (wwhen I had 1000 bp region, now I have 17)
-while sum(walked == 0) > 0 or sum(walked==-1)==120: # while there are node generated, but not walked
+while sum(walked == 0) > 0 or sum(walked==-1)==maxNodeCount: # while there are node generated, but not walked
 
     #if walked[11] == 1:
     #    break
@@ -324,7 +325,7 @@ sib = reg_region_mat[book, :]
 
 label_term_mapping
 
-label_order = [10, 14, 2, 7, 9, 13, 11, 12, 6, 4, 15, 0, 3, 8, 1, 5]
+label_order = [10, 14, 2, 7, 9, 13, 11, 12, 6, 4, 15, 0, 3, 8, 1, 5] # sample 02
 label_color_mapping = {}
 label_color_mapping[10] = [255, 0, 0] # promoter
 label_color_mapping[14] = [255, 69, 0] # promoter
@@ -342,12 +343,31 @@ label_color_mapping[3] = [180, 195, 250] # consHet
 label_color_mapping[8] = [100, 120, 180] # consHet
 label_color_mapping[1] = [240, 240, 240] # Quis
 label_color_mapping[5] = [230, 230, 230] # Quis
+
+label_order = [2,6,12,13,14, 4,3,7,9,11, 15,0, 10,1,5,8] # sample 104
+label_color_mapping = {}
+label_color_mapping[2] = [255, 0, 0] # promoter
+label_color_mapping[6] =  [180, 160, 0] # enhancer
+label_color_mapping[12] = [220, 210, 0] # enhancer
+label_color_mapping[13] = [195, 180, 0] # enhancer
+label_color_mapping[14] = [255, 255, 0] # enhancer
+label_color_mapping[4] = [0, 170, 0]# transcribed
+label_color_mapping[3] =  [0, 150, 0]# Transcribed
+label_color_mapping[7] = [0, 128, 0] # Transcribed
+label_color_mapping[9] =  [220, 14, 220]# FacHet
+label_color_mapping[11] = [200, 10, 200] # FacHet
+label_color_mapping[15] = [150, 5, 150] # FacHet
+label_color_mapping[0] = [138, 145, 208] # consHet
+label_color_mapping[10] = [180, 195, 250] # consHet
+label_color_mapping[1] = [200, 200, 200] # Quis
+label_color_mapping[5] = [240, 240, 240] # Quis
+label_color_mapping[8] = [230, 230, 230] # Quis
 # I will make the mapping myself here as I want each of them to have a different color
 
 # making the colormap:
 colormap = label_color_mapping[label_order[0]]
 colorlist = []
-colorlist.append(np.array(label_color_mapping[10])/255)
+colorlist.append(np.array(label_color_mapping[label_order[0]])/255)
 for label in label_order[1:]:
     colormap = np.vstack([colormap, label_color_mapping[label]])
     colorlist.append(np.array(label_color_mapping[label])/255)
