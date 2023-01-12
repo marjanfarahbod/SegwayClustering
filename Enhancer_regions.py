@@ -7,6 +7,7 @@
 # 2.1 Getting the regions
 # 2.2 Exploratory analyses for the region
 # 3. [second region analysis] Chr vector, adding all the samples and some analyses there
+# 3.4 Examining the odd labels: labels with small overlap with others
 # 4. peak identification
 # 5. Peak label examination 
 
@@ -663,6 +664,9 @@ plt.xlim((-5,5))
 plt.show()
 
 
+# 3.4 Examining the odd labels: labels with small overlap with others
+#########################################################
+
 for i in range(325):
     #rcum_sum = np.cumsum(norm_lc[i,])
     #plt.plot(rcum_sum, 'k', alpha = .07)
@@ -846,7 +850,6 @@ file = dataFolder + 'enhancerlabel_clustering_of_odd_labels.pkl'
 with open(file, 'wb') as f:
     pickle.dump(res, f)
 
-plt.show()
 
 # each label, based on its coverage and the coverage of the repeat's coverage, has an odd of having overalp with repeat regions. Whichever label that is behaving oddly, missing or gaining too much, is of interest.
 # TODO: catch this. But also do the code for the coverage stuff. 
