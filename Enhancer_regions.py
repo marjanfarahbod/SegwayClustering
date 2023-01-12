@@ -3,17 +3,21 @@
 #
 # 0. Initials
 # 1. Get chr19 files
-# 2. First region analyses 
+# 2. First region analyses (obsolete)
 # 2.1 Getting the regions
 # 2.2 Exploratory analyses for the region
-# 3. Chr vector, adding all the samples and some analyses there
+# 3. [second region analysis] Chr vector, adding all the samples and some analyses there
 # 4. peak identification
 # 5. Peak label examination 
 
 #########################################
 # 0. Initials
 #########################################
-
+import linecache
+import pickle
+import re
+import numpy as np
+import pandas as pd
 import os
 import shutil
 import subprocess
@@ -30,6 +34,17 @@ sample_count = len(annMeta)
 annAccessionList = list(annMeta.keys())
 annAccession = annAccessionList[104]
 print(annAccession)
+
+inputFileName = 'all_annInfo_list.pkl'
+inputFile = dataFolder + dataSubFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    ann_info_list = pickle.load(f)
+
+# get the mapping from accession to index
+accession_index_map = {}
+for ann in ann_info_list:
+   accession_index_map[ ann['accession'] ] = ann['index']
+
 
 annAccession = 'ENCSR566HBT'
 index = accession_index_map[annAccession]
@@ -474,7 +489,7 @@ for annAccession in annAccessionList:
         #fields = line.split()
         #center = int(fie)
         for line in enFile:
-            sample_line_count +=1
+            #sample_line_count +=1
             fields = line.split()
             seg_start = int(fields[1][0:-2])
             seg_end = int(fields[2][0:-2])-1
@@ -494,7 +509,7 @@ print(sum(chr_coverage == 0)/max_ind)
 # what percentage is one, or two:
 print(sum(chr_coverage < 3)/max_ind)
 
-coverage_count = np.zeros(sample_count)
+coverage_count = np.zeros(sample_count) 
 coverage_ratio = np.zeros(sample_count)
 s_coverage = chr_coverage
 for i in range(sample_count):
@@ -503,7 +518,20 @@ for i in range(sample_count):
     coverage_ratio[i] = sum(s_coverage == i)/max_ind
     s_coverage = s_coverage[s_coverage>i]
 
-plt.plot(coverage_count)
+
+cc_cum_sum = np.cumsum(coverage_count)
+cr_cum_sum = np.cumsum(coverage_ratio)
+import matplotlib.pyplot as plt
+plt.plot(coverage_ratio)
+plt.plot(cr_cum_sum)
+plt.plot([14, 14], [cr_cum_sum[14], cr_cum_sum[0]], 'k-', linewidth = .5)
+plt.plot([0, 14], [cr_cum_sum[14], cr_cum_sum[14]], 'k-', linewidth = .5)
+
+plt.plot([17, 17], [cr_cum_sum[17], cr_cum_sum[0]], 'k--', linewidth = .5)
+plt.plot([0, 17], [cr_cum_sum[17], cr_cum_sum[17]], 'k--', linewidth = .5)
+plt.xlabel('overlap count')
+plt.ylabel('chr19 coverage')
+
 plt.show()
 
 
@@ -557,7 +585,7 @@ en_label_count # for each sample, it has count of enhancer labels
 en_label_dict # for each sample, it has list of enhancer labels
 chr_coverage # to the length of the chromosome
 total_label = int(sum(en_label_count))
-label_coverages = np.zeros((total_label, 85)) # for each label, what portion is covered with the bps with overlap 0 to 20 
+label_coverages = np.zeros((total_label, 85)) # for each label, what portion is covered with the bps with overlap 0 to 85
 label_ind = 0 # walking on the matrix 
 label_IDs = {} # for the ind (label_ind), the sample and the name of the label
 for annAccession in annAccessionList:
@@ -617,8 +645,9 @@ plt.show()
 countratio_lc = np.zeros(label_coverages.shape)
 for i in range(20):
     countratio_lc[:,i] = label_coverages[:, i]/coverage_count[i+1]
-
-sns.heatmap(countratio_lc[:,0:90])
+    
+import seaborn as sns
+sns.heatmap(countratio_lc[:,0:20])
 plt.show()
 
 # get the ratio of label residing in non-significant regions
@@ -633,7 +662,191 @@ plt.scatter(x, kado, alpha=.2)
 plt.xlim((-5,5))
 plt.show()
 
-# TODO: here find the odd labels
+
+for i in range(325):
+    #rcum_sum = np.cumsum(norm_lc[i,])
+    #plt.plot(rcum_sum, 'k', alpha = .07)
+    plt.plot(norm_lc[i,], 'k', alpha = .07)
+    maxy = max(norm_lc[i,])
+    maxx = np.where(norm_lc[i,]==maxy)
+    plt.plot(maxx, maxy, 'b.')
+
+plt.show()
+
+label_IDs_list = []
+for i in range(len(label_IDs)):
+    id_text = str(label_IDs[i][0]) + '___' + label_IDs[i][1]
+    label_IDs_list.append(id_text)
+
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/testBatch105/'
+# method = 'ward'n
+norm_lc[norm_lc>.11] = .11
+df = pd.DataFrame(norm_lc, index = label_IDs_list)
+sib = sns.clustermap(df, figsize=(6,40), col_cluster=False, cmap='magma', cbar_pos=(.02, .985,.03,.01), dendrogram_ratio=[.25,.01])
+sns.set(font_scale=.4)
+figfile = plotFolder + 'enhancerlabel_overlap_coverage.pdf'
+plt.savefig(figfile)
+plt.show()
+
+dendro_ind = sib.dendrogram_row.reordered_ind
+
+
+# TODO: here find the odd labels: I will do a pairwise overlap test for the odd labels
+
+# get the index of less overlap labels. For each of them, do the overlap with the files.
+book = dendro_ind[263:]
+res_list = [label_IDs_list[i] for i in book]
+print(res_list)
+
+overlap_mat = np.zeros((len(res_list), len(res_list)))
+for i,label1 in enumerate(res_list):
+    # get the index
+    print(label1)
+    print(i)
+    print('_________________')
+    index1 = label1.split('___')[0]
+    labelID1 = label1.split('___')[1]
+
+    annAccession_1 = annAccessionList[int(index1)]
+    sampleFolderAdd_1 = dataFolder + dataSubFolder + annAccession_1 + '/' 
+    bed_1 = sampleFolderAdd_1 + 'chr19_enh.bed'
+
+    # get the name of the .bed file for chr19
+    for j in range(i+1, len(res_list)):
+        label2 = res_list[j]
+        print(label2)
+        # get the index
+        index2 = label2.split('___')[0]
+        labelID2 = label2.split('___')[1]
+        
+        annAccession_2 = annAccessionList[int(index2)]
+        sampleFolderAdd_2 = dataFolder + dataSubFolder + annAccession_2 + '/' 
+        bed_2 = sampleFolderAdd_2 + 'chr19_enh.bed'
+
+        with open(bed_1, 'r') as f_1, open(bed_2, 'r') as f_2:
+            
+            lines_1 = f_1.readlines()
+            lines_2 = f_2.readlines()
+
+        w1 = 0
+        w2 = 0
+        overlap = 0
+        while w1 < len(lines_1) and w2 < len(lines_2):
+            fields_1 = lines_1[w1].split()
+            ll_1 = fields_1[3].split('_')[0]
+            while ll_1 != labelID1 and w1<len(lines_1)-1:
+                w1 += 1
+                fields_1 = lines_1[w1].split()
+                ll_1 = fields_1[3].split('_')[0]
+
+            if ll_1 == labelID1:
+                s1 = int(fields_1[1])
+                e1 = int(fields_1[2])-100
+            else:
+                print('end of file 1')
+                break
+            
+            fields_2 = lines_2[w2].split()
+            ll_2 = fields_2[3].split('_')[0]
+            while ll_2 != labelID2 and w2<len(lines_2)-1:
+                w2 += 1
+                fields_2 = lines_2[w2].split()
+                ll_2 = fields_2[3].split('_')[0]
+
+            if ll_2 == labelID2:
+                s2 = int(fields_2[1])
+                e2 = int(fields_2[2])-100
+            else:
+                print('end of file 2')
+                break
+
+            # if overlap, count
+            if not(s1 > e2 or e1 < s2):
+                overlap += min(e1, e2) - max(s1, s2)
+
+            # the one with smaller end moves fw
+            if e1 < e2:
+                w1 +=1
+            else:
+                w2 +=1
+
+        overlap_mat[i,j] = overlap
+        overlap_mat[j,i] = overlap
+                        
+# get the lenght of each label
+res_list_length = np.zeros(len(res_list))
+for i,label in enumerate(res_list):
+    # get the index
+    print(label)
+    index = label.split('___')[0]
+    labelID = label.split('___')[1]
+
+    annAccession = annAccessionList[int(index)]
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/' 
+    bed = sampleFolderAdd + 'chr19_enh.bed'
+
+    with open(bed, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            fields = line.split()
+            ll = fields[3].split('_')[0]
+            if ll == labelID:
+                s = int(fields[1])
+                e = int(fields[2])-100
+                res_list_length[i] += e - s            
+
+
+# get the normalized overlap for each pair:
+expected_overlap = np.zeros(overlap_mat.shape)
+chr_length = 590000
+for i in range(len(res_list_length)):
+    for j in range(i+1, len(res_list_length)):
+        expected_overlap[i, j] = (overlap_mat[i,j]/(chr_length*100))/((res_list_length[i]/(chr_length*100))*(res_list_length[j]/(chr_length*100)))
+        expected_overlap[j,i] = expected_overlap[i,j]
+
+#expected_overlap[expected_overlap>4] = 4
+
+log_overlap = np.log10(expected_overlap+1)
+dist = 1/(log_overlap+1)
+np.fill_diagonal(dist,0)
+
+from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import dendrogram, linkage
+
+condensed_dist = squareform(dist)
+linkresult = linkage(condensed_dist, method='ward')
+
+dn = dendrogram(linkresult)
+print(dn['ivl'])
+order_list = dn['ivl']
+
+reordered = np.zeros(len(order_list))
+for i,ind in enumerate(order_list):
+    reordered[i] = int(ind)
+
+reordered = reordered.astype(int)
+res_list_reordered = [res_list[i] for i in reordered]
+
+log_overlap2 = np.log10(expected_overlap+1)
+overlap_reordered = log_overlap2[reordered,:]
+overlap_reordered = overlap_reordered[:, reordered]
+
+df = pd.DataFrame(overlap_reordered, index=res_list_reordered, columns = res_list_reordered)
+sns.heatmap(overlap_reordered)
+sns.heatmap(df)
+sns.set(font_scale=.4)
+figfile = plotFolder + 'enhancerlabel_clustering_of_odd_labels.pdf'
+plt.savefig(figfile)
+
+# saving all the results:
+res = {}
+res['idlist_ordered'] = res_list
+res['dendro'] = dn
+file = dataFolder + 'enhancerlabel_clustering_of_odd_labels.pkl'
+with open(file, 'wb') as f:
+    pickle.dump(res, f)
+
+plt.show()
 
 # each label, based on its coverage and the coverage of the repeat's coverage, has an odd of having overalp with repeat regions. Whichever label that is behaving oddly, missing or gaining too much, is of interest.
 # TODO: catch this. But also do the code for the coverage stuff. 
@@ -919,7 +1132,7 @@ for annAccession in annAccessionList:
 
 print(peak_presence.shape)
 method = 'ward'
-sib = sns.clustermap(peak_presence[1:4000,], cmap='binary')
+sib = sns.clustermap(peak_presence[1:4000,], cmap='binary', method=method)
 plt.show()
 
 method = 'ward'
