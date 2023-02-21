@@ -1,3 +1,4 @@
+# TODO : this file needs major clean up
 # this is to do the experiment and test for checking the probabilities for the enhances
 import pickle
 import pandas as pd
@@ -364,4 +365,54 @@ for term1 in term_list:
 # how many labels are lower than .4 and higher than .3 - who is their next candidate and how up it goes
 
 print(np.where(low_mean_arg == 85))
+
+for ann in annInfo_list:
+
+    index = ann['index']
+    #print(index)
+    sampleFolder =  ann['accession']
+
+    if sampleFolder == 'ENCSR950GQD':
+        print(index)
+
+
+badsampleList1 = [ 86,  20,  22,  69,  57,   9,  92,  37,  54,  39, 103,  82,  23, 27,  25]
+for ann in annInfo_list:
+    index = ann['index']
+    if index in badsampleList1:
+        print(ann['accession'])
+    
+##### Bad samples for the May run
+########################################
+
+ID_mnemonics = {}
+low_mean_vals = np.zeros(len(runIDs))
+for i,runID in enumerate(runIDs):
+
+    print(runID)
+
+    if runID == '5857d68b-e559-4776-9c12-a6e10aea7f76': # this runID doesn't have the signal_dist file
+        continue
+
+    sampleFolderAdd = dataFolder + dataSubFolder + runID + '/'
+    mnemfile = sampleFolderAdd + 'probs_v03.csv'
+    df_p = pd.read_csv(mnemfile)
+
+    
+    # extracting the maximum prob for each of the labels
+    df_p = df_p.drop('Unnamed: 0', axis =1)
+    label_names = df_p.idxmax(axis=1)
+    label_prob = df_p.max(axis=1)
+
+    lp_array = label_prob.to_numpy()
+    vals = np.sort(lp_array)
+    low_mean_vals[i] = np.mean(vals[0:5])
+
+
+
+outputFile = dataFolder + dataSubFolder + 'classifier_output.pkl'
+with open(outputFile, 'wb') as output:
+    pickle.dump(ID_mnemonics, output)
+
+
 
