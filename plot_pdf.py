@@ -96,6 +96,64 @@ with open(html_file, 'w') as output:
 
     # printing the html file
     output.write(end_text)
+
+
+
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/'
+    
+for index in range(105):
+
+    ann = ann_info_list[index]
+    annAccession = ann['accession']
+    print(annAccession)
+
+    folder_name = plotFolder + 'plotsForInterpretation/' + str(index) + '_' + annAccession
+
+    os.mkdir(folder_name)
+    
+    runID = accession_runID[annAccession]
+    segtools_folder_add = dataFolder + 'testBatch105/all_segtools/' + runID + '/'
+
+    sample_plot_folder = plotFolder + annAccession 
+
+        plot_file = sample_plot_folder + '/the_panel_03.pdf'
+        text_sample_plot = str(index) + '___' + annAccession + '__sample'
+        mid_text = '<p><a href="%s">%s</a></p>' %(plot_file, text_sample_plot)
+        output.write(mid_text)
+
+        plot_file = sample_plot_folder + '/GMTK_emmission.pdf'
+        text_sample_plot = str(index) + '___' + annAccession + '__GMTK'
+        mid_text = '<p><a href="%s">%s</a></p>' %(plot_file, text_sample_plot)
+        output.write(mid_text)
+
+        plot_file = sample_plot_folder + '/expression_transcript_03.pdf'
+        if os.path.isfile(plot_file):
+            text_sample_plot = str(index) + '___' + annAccession + '__transcript'
+            mid_text = '<p><a href="%s">%s</a></p>' %(plot_file, text_sample_plot)
+            output.write(mid_text)
+
+        plot_file = sample_plot_folder + '/length_dist_hist.pdf'
+        if os.path.isfile(plot_file):
+            text_sample_plot = str(index) + '___' + annAccession + '__length_dist'
+            mid_text = '<p><a href="%s">%s</a></p>' %(plot_file, text_sample_plot)
+            output.write(mid_text)
+
+        plot_file = sample_plot_folder + '/genome_coverage.pdf'
+        if os.path.isfile(plot_file):
+            text_sample_plot = str(index) + '___' + annAccession + '__genome_coverage'
+            mid_text = '<p><a href="%s">%s</a></p>' %(plot_file, text_sample_plot)
+            output.write(mid_text)
+
+
+        #plot_file = segtools_folder_add + 'glob-a287da44f32bf6a3fc6d7c51c52ddafa/' + 'length_distribution.pdf'
+        #text_sample_plot = str(index) + '___' + annAccession + '__length_dist'
+        #mid_text = '<p><a href="%s">%s</a></p>' %(plot_file, text_sample_plot)
+        #output.write(mid_text)
+        
+
+    # printing the html file
+    output.write(end_text)
+
     
 #########################################        
 #########################################    
