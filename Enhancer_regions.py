@@ -7,6 +7,9 @@
 # 2.1 Getting the regions
 # 2.2 Exploratory analyses for the region
 # 3. [second region analysis] Chr vector, adding all the samples and some analyses there
+# 3.1 adding all the smaples, geting the count of reg for each sample
+# 3.2 coverage for count of repeats throught the chromosome
+# 3.3 coverage and coverage of the overlap for each label
 # 3.4 Examining the odd labels: labels with small overlap with others
 # 4. peak identification
 # 5. Peak label examination 
@@ -421,6 +424,10 @@ plt.show()
 
 # >>>> get the p-value of the peaks
 # in each throw, the prob of that region be visited is 8%. what are the the odds of that region be visited 10 times, in 100 throws. and then there is an f value.
+
+#for i,k in enumerate(reversed(sib)):
+#    print(i)
+#    print(k)
 
 # what are teh odds of long region coverage
 #alternative : {‘two-sided’, ‘greater’, ‘less’},

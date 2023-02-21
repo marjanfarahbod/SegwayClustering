@@ -18,6 +18,10 @@ for runID in list(runID_accession.keys()):
     ac = runID_accession[runID]
     accession_runID[ac] = runID
 
+segwayLabels = ['Enhancer_low', 'Enhancer', 'Promoter_flanking', 'Promoter', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent', 'Unclassified']
+
+track_order = [ 'H3K4me3', 'H3K27ac', 'H3K4me1', 'H3K36me3', 'H3K27me3', 'H3K9me3', 'CTCF', 'DNase-seq', 'ATAC-seq', 'POLR2A', 'EP300']
+
 #########################################    
 index = 79
 
@@ -26,7 +30,21 @@ for index in range(105):
     annAccession = ann['accession']
     print(annAccession)
 
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
     runID = accession_runID[annAccession]
+
+    # get the label from label from mnemonics: a dictionary from labels to terms
+    label_term_mapping = {}
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+
 
     segtools_add = dataFolder + 'testBatch105/all_segtools/' + runID
     print(segtools_add)
@@ -44,17 +62,35 @@ for index in range(105):
     for track in track_accession:
         track_names.append(ann['track_assay_map'][track])
 
-    # get row list
-    ordered_labels = list(df.index)
-    segway_labels = list(ann['segway_anns']['clusters'].keys())
-    for label in segway_labels:
-        number = int(label.split('_')[0])
-        ordered_labels[number] = label
-    
+    # get row list - this section is obsolete since we got the new interpretation terms that are different
+    #ordered_labels = list(df.index)
+    #segway_labels = list(ann['segway_anns']['clusters'].keys())
+    #for label in segway_labels:
+    #    number = int(label.split('_')[0])
+    #    ordered_labels[number] = label
+
+    index_list = []
+    for i in range(len(df)):
+        label_name = str(i) + '_' + label_term_mapping[str(i)]
+        index_list.append(label_name)
 
     df.columns = track_names
-    df.index = ordered_labels
+    df.index = index_list
 
+    reordered_columns = []
+    for track in track_order:
+        if track in track_names:
+            reordered_columns.append(track)
+
+    reordered_index = []
+    for label in segwayLabels:
+        for index in index_list:
+            if index.split('_')[1] == label:
+                reordered_index.append(index)
+    
+    df = df[reordered_columns]
+    df = df.reindex(reordered_index)
+    
     kado = df.transpose()
 
     fig,axs = plt.subplots(1, figsize=(4,3))

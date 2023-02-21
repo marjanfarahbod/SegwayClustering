@@ -151,6 +151,13 @@ coors_frame.to_pickle(fileName)
 with open(fileName, 'rb') as f:
    coors = pickle.load(f)
 
+coors_positive = coors.loc[coors['strand']=='+']
+all_gene_coverage = sum(abs(pd.to_numeric(coors_positive['start']) - pd.to_numeric(coors_positive['end'])))
+all_gene_ratio = all_gene_coverage/3e+9
+ 
+protein_coding_genes = coors_positive.loc[coors['geneType']==""""protein_coding";"""]
+all_pgene_coverage = sum(abs(pd.to_numeric(protein_coding_genes['start']) - pd.to_numeric(protein_coding_genes['end'])))
+all_pgene_ratio = all_pgene_coverage/3e+9
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # 0.2 preprocess and QC for the RNA-seq file

@@ -189,6 +189,7 @@ track_counts = np.zeros(105)
 for i, ann in enumerate(ann_info_list):
     track_counts[i] = ann['segway_track_count']
 
+# getting count of samples per track
 sample_count_per_track = np.zeros(len(unique_track_list))
 for ann in ann_info_list:
     ann_track_list = ann['track_assay_map'].values()
@@ -199,6 +200,47 @@ for ann in ann_info_list:
         sample_count_per_track[i] += 1
 
     print(book)
+
+# getting the matrix of track-sample
+sample_tracks = np.zeros((len(ann_info), len(unique_track_list)))
+for j,ann in enumerate(ann_info_list):
+    ann_track_list = ann['track_assay_map'].values()
+    #book = np.zeros((len(unique_track_list)))
+    for track in ann_track_list:
+        i = unique_track_list.index(track)
+        #book[i] +=1
+        sample_tracks[j][i] += 1
+
+track_reorder_index = [2, 3, 1, 6, 4, 7, 5, 0, 8, 10, 9]
+
+book = sample_tracks[:, track_reorder_index]
+
+book = (book-1)
+book = np.abs(book)
+
+import seaborn as sns
+sib = sns.clustermap(book, method = 'average', dendrogram_ratio = [.25,.01], cbar_pos=(.02, .985,.03,.01), col_cluster=False)
+
+plt.show()
+dendro_indices = sib.dendrogram_row.reordered_ind
+
+book = book[dendro_indices,]
+
+sum_book = np.sum(book, axis=1)
+
+a_sort_book = np.argsort(-(sum_book))
+
+new_book = book[a_sort_book,:]
+
+sns.heatmap(np.abs(new_book-1))
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/testBatch105/'
+figFile = plotFolder + 'sample_track_heatmap.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+plt.show()
+
 
 fix, axs = plt.subplots(1, figsize=(6,4))
 plt.grid()
@@ -1005,11 +1047,6 @@ plt.close('all')
                 allClusters_list.append(index_cluster)
 
     segway_cluster_list = sortedClusterList
-
-
-
-
-
 
 
 
