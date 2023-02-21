@@ -15,7 +15,7 @@ import pandas as pd
 import subprocess as sp
 import seaborn as sns
 import matplotlib.pyplot as plt
-from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
+ofrom QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationClass
 
 
 # open the folder and look up the stuff
