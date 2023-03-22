@@ -37,7 +37,18 @@ geneList = geneListsAndIDs[0]
 geneIDList = geneListsAndIDs[1]
 del geneListsAndIDs
 
-segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as f:
+    annMeta = pickle.load(f)
+
+sample_count = len(annMeta)
+
+annAccessionList = list(annMeta.keys())
+annAccession = annAccessionList[104]
+print(annAccession)
+
+
+# obsolete segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
 
 # How well do they do regarding the transcription data? active prmoter
 # How well do they do regarding the transcription data? transcribed region etc.
@@ -50,7 +61,7 @@ segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed',
 # do this for both chromhmm and segway. hahaha.
 ########################################
 
-extension = 3000 # count of basepairs monitored before and after the gene coordinates
+# not needed extension = 3000 # count of basepairs monitored before and after the gene coordinates
 
 annAccessionCount = 0
 for annAccession in annAccessionList:
@@ -132,8 +143,8 @@ for annAccession in annAccessionList:
             #print(gene_start)
             #print(gene_end)
 
-            gene_length = gene_end - gene_start 
-            promoter_length = 1400
+            gene_length = gene_end - gene_start - 300
+            promoter_length = 1500
             gene_coverage = 0
             promoter_coverage = 0
             #gene_length = gene_end - gene_start
@@ -147,10 +158,10 @@ for annAccession in annAccessionList:
             # TODO: ideally: something to fix: the gene_length_last_unit for negative strand versus positive strand
 
             if strand == '+':
-                gene_start = gene_start - promoter_length
+                gene_start = gene_start - promoter_length + 300
 
             if strand == '-':
-                gene_end = gene_end + promoter_length
+                gene_end = gene_end + promoter_length - 300
             
             #extension_start = gene_start - extension
             #extension_end = gene_end + extension
@@ -251,52 +262,51 @@ for annAccession in annAccessionList:
                 #print('main while')
 
                 # in the next sections we are processing the annotation
-                if ann_chr == gene_chr: # if we are in the same choromosome # I think we are, that is the condition
-                    if not((ann_end < gene_start) or ann_start > gene_end):
-                        #print('genomic region')
+                if not((ann_end < gene_start) or ann_start > gene_end):
+                    #print('genomic region')
                     #if ((ann_start < gene_end and ann_start > extension_start) or 
                     #   (ann_end < extension_end and ann_end > extension_start) or
                     #   (ann_start < extension_start and ann_end > extension_end)):
 
-                        ''' We are in the genonimc region (with extension)'''
-                        #print('annotation') # >>>> test
-                        #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end)) # >>>> test
+                    ''' We are in the genonimc region (with extension)'''
+                    #print('annotation') # >>>> test
+                    #print('%ss, %s, %s' %(ann_chr, ann_start, ann_end)) # >>>> test
 
-                        ''' Taking off for filling the matrices... '''
+                    ''' Taking off for filling the matrices... '''
                         
-                        adjusted_ann_start = max(0, ann_start - gene_start)
-                        adjusted_ann_end = min(ann_end - gene_start, gene_end - gene_start)
-                        adjusted_ann_length = adjusted_ann_end - adjusted_ann_start
+                    adjusted_ann_start = max(0, ann_start - gene_start)
+                    adjusted_ann_end = min(ann_end - gene_start, gene_end - gene_start)
+                    adjusted_ann_length = adjusted_ann_end - adjusted_ann_start
 
-                        ann_cluster = fields[3].split('_')[0]
-                        clusterInd = int(ann_cluster)
+                    ann_cluster = fields[3].split('_')[0]
+                    clusterInd = int(ann_cluster)
 
-                        if gene_strand == '+':  # munching 100bp s from annotation, filling the geneMat
-                            #print('positive strand')
+                    if strand == '+':  # munching 100bp s from annotation, filling the geneMat
+                        #print('positive strand')
 
-                            if promoter_coverage < promoter_length:
-                                new_coverage = min(adjusted_ann_length, promoter_length - promoter_coverage)
-                                labelPromoterMat[cgi, clusterInd] += new_coverage
-                                adjusted_ann_length = adjusted_ann_length - new_coverage
-                                promoter_coverage += new_coverage
-                            if gene_coverage < gene_length and adjusted_ann_length > 0:
-                                new_coverage = min(adjusted_ann_length, gene_length - gene_coverage)
-                                labelExpMat[cgi, clusterInd] += new_coverage
-                                adjusted_ann_length = adjusted_ann_length - new_coverage
-                                gene_coverage += new_coverage
+                        if promoter_coverage < promoter_length:
+                            new_coverage = min(adjusted_ann_length, promoter_length - promoter_coverage)
+                            labelPromoterMat[cgi, clusterInd] += new_coverage
+                            adjusted_ann_length = adjusted_ann_length - new_coverage
+                            promoter_coverage += new_coverage
+                        if gene_coverage < gene_length and adjusted_ann_length > 0:
+                            new_coverage = min(adjusted_ann_length, gene_length - gene_coverage)
+                            labelExpMat[cgi, clusterInd] += new_coverage
+                            adjusted_ann_length = adjusted_ann_length - new_coverage
+                            gene_coverage += new_coverage
                             #coverPromoter
  
                             #coverGene
-                        if gene_strand == '-':
-                            #print('negative strand')
-                            if gene_coverage < gene_length:
-                                new_coverage = min(adjusted_ann_length, gene_length - gene_coverage)
-                                labelExpMat[cgi, clusterInd] += new_coverage
-                                adjusted_ann_length = adjusted_ann_length - new_coverage
-                            if promoter_coverage < promoter_length and adjusted_ann_length >0:
-                                new_coverage = min(adjusted_ann_length, promoter_length - promoter_coverage)
-                                labelPromoterMat[cgi, clusterInd] += new_coverage
-                                adjusted_ann_length = adjusted_ann_length - new_coverage
+                    if strand == '-':
+                        #print('negative strand')
+                        if gene_coverage < gene_length:
+                            new_coverage = min(adjusted_ann_length, gene_length - gene_coverage)
+                            labelExpMat[cgi, clusterInd] += new_coverage
+                            adjusted_ann_length = adjusted_ann_length - new_coverage
+                        if promoter_coverage < promoter_length and adjusted_ann_length >0:
+                            new_coverage = min(adjusted_ann_length, promoter_length - promoter_coverage)
+                            labelPromoterMat[cgi, clusterInd] += new_coverage
+                            adjusted_ann_length = adjusted_ann_length - new_coverage
 
 
                 
@@ -345,6 +355,8 @@ labelExpMat = transPromoMat['promoter']
 sib = labelExpMat.sum(axis = 1)
 sib[sib == 0] = 1
 
+filterGene = sib > 0
+
 labelExpMat = labelExpMat/sib[:,None]
 
 ####
@@ -360,15 +372,34 @@ labelExpMat = labelExpMat/sib[:,None]
             label_term_mapping[label] = term
 
     expArray = np.asarray([expression[x] for x in geneIDList])
+    filterExp = expArray[filterGene,]
+    filterExpMat = labelExpMat[filterGene, :]
+    sumExp = filterExpMat.sum(axis = 1)
+    filterExpMat = filterExpMat/sumExp[:,None]
     
     plt.hist(expArray)
     plt.show()
 
-    notExp = expArray == 0
-    exp = expArray > 0
+    notExp = filterExp == 0
+    exp = filterExp > 0
 
     fig = plt.figure(figsize =(17, 7))
     ax = fig.add_subplot(111)
+
+    
+    data = []
+    for i in range(labelCount):
+        expVals = filterExpMat[exp, i]
+        notExpVals = filterExpMat[notExp, i]
+        data.append(expVals)
+        data.append(notExpVals)
+        
+        plt.boxplot(data)
+        plt.xticks(fontsize=10)
+        plt.yticks(fontsize=10)
+
+        plt.show()
+ 
  
     data = []
     for i in range(labelCount):
