@@ -29,7 +29,6 @@ from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationCl
 
 # General data folder
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
-
 dataSubFolder = 'testBatch105/fromAPI/'
 
 # GTF data structure
@@ -47,9 +46,16 @@ segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed',
 # 1. Specifics
 ########################################
 
-# list of annotation folders
-sampleList = os.listdir(dataFolder + dataSubFolder)
-print(len(sampleList))
+# Getting list of annotation folders
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as f:
+    annMeta = pickle.load(f)
+
+sample_count = len(annMeta)
+
+annAccessionList = list(annMeta.keys())  # gettign list of annotationAccession
+annAccession = annAccessionList[104]
+print(annAccession)
 
 ########################################
 # 2. Pre processings 
@@ -93,8 +99,7 @@ inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
 with open(inputFile, 'rb') as f:
     annMeta = pickle.load(f)
 
-    
-# 2.1. preping expression data
+ # 2.1. preping expression data
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 annAccessionList = list(annMeta.keys())
@@ -129,7 +134,6 @@ for annAccession in annAccessionList:
         expAccession = re.split('_|\.', expFileName)[2]
         outputFile = sampleFolderAdd + 'geneExp_dict_' + expAccession + '.pkl'
         print('printing this file %s' %(outputFile))
-
          
         with open(outputFile, 'wb') as f:
             pickle.dump(expression, f)
