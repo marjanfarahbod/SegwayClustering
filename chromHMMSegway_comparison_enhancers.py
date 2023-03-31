@@ -2,6 +2,8 @@
 # how much do they overlap with the detected enhancers for the cell type - each.
 # distribution of enhancer labels for the two samples. Samples investigated separately. (I can change the model if I like it)
 
+
+
 ########################################
 # Phantom5 enhancer analyses is pending until I find stuff
 ########################################
@@ -360,7 +362,7 @@ for annAccession in annAccessionList[0:30]:
             observedFraction_mat[i][j] = overlap_mat[i][j] / total_bp
 
     obs_exp = np.divide(observedFraction_mat, expectedFraction_mat)
-
+    
     # get the normalized value
     overlap_mat_colNorm = overlap_mat / np.sum(overlap_mat, axis=0)[np.newaxis, :] # chmm
     overlap_mat_rowNorm = overlap_mat / np.sum(overlap_mat, axis=1)[:, np.newaxis] # segway
@@ -415,13 +417,15 @@ for annAccession in annAccessionList[0:30]:
     obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
 
     sumCovVal = np.zeros(len(segwayAxis_list))
+    meanLog = np.zeros(len(segwayAxis_list))
     for i in range(len(segwayAxis_list)):
         sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6])
+        meanLog[i] = np.mean(obs_exp_log[i, 0:6])
 
     totEnhancer = np.sum(overlap_mat[:,0:6], 1)
     chromEnhFracsSelf = totEnhancer /(sum(totEnhancer))
 
-    selfMatch[annAccession] = (segwayAxis_list, sumCovVal, chromEnhFracsSelf)
+    selfMatch[annAccession] = (segwayAxis_list, sumCovVal, chromEnhFracsSelf, meanLog)
 
     #book = np.argsort(sumCovVal)
     #for i in book:
@@ -435,6 +439,7 @@ for annAccession in annAccessionList[0:30]:
     matchList = {}
     matchVal = {}
     chromEnhFracs = {}
+    meanLogs = {}
     for nonSelfAccession in annAccessionList:
 
         if nonSelfAccession == annAccession:
@@ -535,8 +540,10 @@ for annAccession in annAccessionList[0:30]:
         obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
 
         sumCovVal = np.zeros(len(segwayAxis_list))
+        meanLog = np.zeros(len(segwayAxis_list))
         for i in range(len(segwayAxis_list)):
             sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6])
+            meanLog[i] = np.mean(obs_exp_log[i, 0:6])
 
         totEnhancer = np.sum(overlap_mat[:,0:6], 1)
         chromEnhFrac = totEnhancer /(sum(totEnhancer))
@@ -552,9 +559,10 @@ for annAccession in annAccessionList[0:30]:
         #matchList[nonSelfAccession] = segwayAxis_list
         matchVal[nonSelfAccession] = sumCovVal
         chromEnhFracs[nonSelfAccession] = chromEnhFrac
+        meanLogs[nonSelfAccession] = meanLog
 
     #allMatch[annAccession] = (bestMatch, bestMatchVal)
-    allMatch[annAccession] = (segwayAxis_list, matchVal, chromEnhFracs)
+    allMatch[annAccession] = (segwayAxis_list, matchVal, chromEnhFracs, meanLogs)
 
         # find the rows with label Enhancer (just that)
     # get the coverage ratio from the cells with log > .3
@@ -578,9 +586,11 @@ for annAccession in annAccessionList[0:30]:
     book = np.argsort(sumCovVal)[::-1]
 
     topIndsSelf = book[0:3]
-    
+
     fracs = selfMatchThis[2]
     print(sum(fracs[topIndsSelf]))
+
+    print(selfMatchThis[3][topIndsSelf])
 
     selfCov[annAccession] = sum(fracs[topIndsSelf])
 
@@ -606,6 +616,12 @@ for annAccession in annAccessionList[0:30]:
         
         print(sum(fracs[topInds]))
 
+        minMeanLogNonSelf = (allMatchThis[3][nonSelfAccession][topInds])
+        
+        print(minMeanLogNonSelf)
+        print(selfMatchThis[3][topIndsSelf])
+
+
         for ind in topInds:
             print(labels[ind])
 
@@ -623,4 +639,9 @@ sib = np.sort(otherCov/mainCov)
 
 plt.hist(sib)
 plt.show()
-        
+
+
+# TODO: what coverage do I get at that same level of significance (log ratio overlap)
+# regarding the coverage, level of significance doe snot matter, as a Quies might have high significance level
+# for the other samples, since, it is the other sample!!! BUT, where it is an active lable, we definitley have lower
+# significance level for the other thing. That is why it doesn't matter 
