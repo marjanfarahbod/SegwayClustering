@@ -2,7 +2,7 @@
 # how much do they overlap with the detected enhancers for the cell type - each.
 # distribution of enhancer labels for the two samples. Samples investigated separately. (I can change the model if I like it)
 
-
+# TODO: get the average genome coverage for whatever samples we are comparing
 
 ########################################
 # Phantom5 enhancer analyses is pending until I find stuff
@@ -48,6 +48,110 @@ with open(inputFile, 'rb') as f:
 book =  'EnhA1 EnhA2 EnhBiv EnhG1 EnhG2 EnhWk Het Quies ReprPC ReprPCWk TssA TssBiv TssFlnk TssFlnkD TssFlnkU Tx TxWk ZNF/Rpts'
 chromLabels = book.split()
 
+# chrom and segway coverage distribution
+########################################
+
+segwayLabels = ['Enhancer', 'EnhancerLow', 'Promoter', 'PromoterFlanking', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
+
+chromLabels_reordered = ['EnhA1', 'EnhA2', 'EnhBiv', 'EnhG1', 'EnhG2', 'EnhWk', 'TssA',  'TssFlnk', 'TssFlnkD', 'TssFlnkU', 'Tx', 'TxWk', 'ReprPC', 'ReprPCWk', 'ZNF/Rpts', 'TssBiv','Het', 'Quies' ]
+
+chromLabels_merged  = ['Enh', 'EnhWk', 'Tss', 'TssFlnk', 'Tx', 'ReprPC', 'ReprPCWk', 'ZNF/Rpts', 'TssBiv', 'Het', 'Quies']
+
+chromCoverage = np.zeros((len(annAccessionList), 18))
+segwayCoverage = np.zeros((len(annAccessionList), len(segwayLabels)))
+sampleCount = 0
+for annAccession in annAccessionList:
+
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    # get the name of the segway bed file from annMeta
+    originalBedFile = annMeta[annAccession]['bedFile']
+    bedAccession = originalBedFile.split('.')[0]
+
+    chmmFile = chmmFile_dict[annAccession]
+    if chmmFile == 'none':
+        continue
+
+    chmmAccession = re.search('ENCFF.*\.', chmmFile)[0][:-1]
+    
+    inputFileName = 'overlap_segway_%s_chmm_%s.pkl' %(bedAccession, chmmAccession)
+    inputFile = dataFolder + dataSubFolder + annAccession + '/' + inputFileName
+    with open(inputFile, 'rb') as f:
+        overlap = pickle.load(f)
+
+    overlap_mat = overlap.to_numpy()
+    # get the axis labels
+    segway_cluster_list_old = list(overlap.index.values)
+    chmm_class_list = list(overlap.columns.values)
+
+    # load the updated mnemonics
+    label_term_mapping = {}
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+
+    # change segway_cluster_list_updated based on the mnemonics
+    segway_cluster_list = []
+    for cluster in segway_cluster_list_old:
+        label = cluster.split('_')[0]
+        term = label_term_mapping[label]
+        segway_cluster_list.append(label + '_' + term)
+
+
+    # total bp count that is covered by both annotations
+    total_bp = np.sum(overlap_mat)
+
+    # fraction of base pairs in each label to the total bp count
+    chmm_labelFraction = np.sum(overlap_mat, axis = 0) / total_bp
+    segway_labelFraction = np.sum(overlap_mat, axis = 1) / total_bp
+
+    # TODO: do the loop for the segway coverage
+    segFracList = np.zeros(len(segwayLabels))
+    for i,label in enumerate(segwayLabels):
+        for j, sampleLabel in enumerate(segway_cluster_list):
+            if sampleLabel.split('_')[1] == label:
+                segFracList[i] += segway_labelFraction[j]
+
+    chromFracList = np.zeros(len(chromLabels))
+    for i, label in enumerate(chromLabels_reordered):
+        for j,sampleLabel in enumerate(chromLabels):
+            if sampleLabel == label:
+                chromFracList[i] = chmm_labelFraction[j]
+
+    chromCoverage[sampleCount, :] = chromFracList
+    segwayCoverage[sampleCount, :] = segFracList
+    sampleCount +=1
+
+segwayCoverage = segwayCoverage[0:sampleCount,:]
+chromCoverage = chromCoverage[0:sampleCount, :]
+
+# fixing the mergedchrom
+chromCoverage_merged = np.zeros((sampleCount, len(chromLabels_merged)))
+chromCoverage_merged[:, 0] = np.sum(chromCoverage[:, 0:5], axis=1) # enh
+chromCoverage_merged[:, 1] = chromCoverage[:, 5] # enhLow
+chromCoverage_merged[:, 2] = chromCoverage[:, 6] # promoter
+chromCoverage_merged[:, 3] = np.sum(chromCoverage[:, 7:10], axis=1) # promoterFlank
+chromCoverage_merged[:, 4] = np.sum(chromCoverage[:, 10:12], axis=1) # transcribed
+chromCoverage_merged[:, 5] = chromCoverage[:, 12] # that thing
+chromCoverage_merged[:, 6] = chromCoverage[:, 13] # that other thing
+chromCoverage_merged[:, 7] = chromCoverage[:, 14] # znf
+chromCoverage_merged[:, 8] = chromCoverage[:, 15] # biv
+chromCoverage_merged[:, 9] = chromCoverage[:, 16] # het
+chromCoverage_merged[:, 10] = chromCoverage[:, 17] # Quis
+
+plt.boxplot(segwayCoverage)
+plt.show()
+
+plt.boxplot(chromCoverage_merged)
+plt.show()
+
+plt.boxplot(chromCoverage)
+plt.show()
+
+
 # chromhmm segway comparison
 ########################################
 
@@ -59,7 +163,6 @@ for annAccession in annAccessionList:
     # get the name of the segway bed file from annMeta
     originalBedFile = annMeta[annAccession]['bedFile']
     bedAccession = originalBedFile.split('.')[0]
-
 
     chmmFile = chmmFile_dict[annAccession]
     chmmAccession = re.search('ENCFF.*\.', chmmFile)[0][:-1]
@@ -95,6 +198,9 @@ for annAccession in annAccessionList:
     overlap_mat_colNorm = overlap_mat / np.sum(overlap_mat, axis=0)[np.newaxis, :] # chmm
     overlap_mat_rowNorm = overlap_mat / np.sum(overlap_mat, axis=1)[:, np.newaxis] # segway
 
+    # get the axis labels
+    segway_cluster_list_old = list(overlap.index.values)
+    chmm_class_list = list(overlap.columns.values)
     
     # load the updated mnemonics
     label_term_mapping = {}
@@ -120,11 +226,10 @@ for annAccession in annAccessionList:
             if cluster.split('_')[1] == label:
                 segway_cluster_list_reordered.append(cluster)
 
-                    # add the ratio to the axis labels
+    # add the ratio to the axis labels
     segwayAxis_list = []
     for i, cluster in enumerate(segway_cluster_list):
         segwayAxis_list.append(cluster + '_' + str(round(segway_labelFraction[i], 4)))
-
 
     segwayAxis_list_reordered = []
     for label in segwayLabels:
@@ -415,15 +520,25 @@ for annAccession in annAccessionList[0:30]:
 
     obs_exp_log = np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0))
     obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
+    
+    totEnhancerPerChromLabel = np.sum(overlap_mat[:,0:6], 1) # total enhancer bps for different chrom enhancers
+    totalEnhancer = sum(totEnhancerPerChromLabel)
+    # chromEnhFracsSelf = totEnhancer /(sum(totEnhancer)) # the fraction of total enhancer labels
 
+    enhOverlap_enhNorm = overlap_mat[:, 0:6]/totalEnhancer # ratio of chrom enhancer labels for labels of segway (notice that it is normalized by the total enhancer labels, this will read: cell i,j has the r amount of total chrom enhancer labels labeld with segway i label and chrom j label)
+    chromEnhFracsSelf = np.sum(enhOverlap_enhNorm, axis = 1)
+    
+    #chromEnhFracsSelf = np.sum(overlap_mat_colNorm[:, 0:6], axis =1)
+
+    #  getting the (overlap-ratio * logoe-ratio) of the chrom enhancers, for each segway labels
+    # the meanLog has the average of the above value for the coverage of the ChromEnhancer label
     sumCovVal = np.zeros(len(segwayAxis_list))
     meanLog = np.zeros(len(segwayAxis_list))
     for i in range(len(segwayAxis_list)):
-        sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6])
-        meanLog[i] = np.mean(obs_exp_log[i, 0:6])
-
-    totEnhancer = np.sum(overlap_mat[:,0:6], 1)
-    chromEnhFracsSelf = totEnhancer /(sum(totEnhancer))
+        #sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6]) # ***
+        sumCovVal[i] = np.sum(enhOverlap_enhNorm[i,0:6]* obs_exp_log[i, 0:6])
+        #meanLog[i] = np.mean(obs_exp_log[i, 0:6])
+        meanLog[i] = sumCovVal[i] / chromEnhFracsSelf[i]
 
     selfMatch[annAccession] = (segwayAxis_list, sumCovVal, chromEnhFracsSelf, meanLog)
 
@@ -539,14 +654,24 @@ for annAccession in annAccessionList[0:30]:
         obs_exp_log = np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0))
         obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
 
+            
+        totEnhancerPerChromLabel = np.sum(overlap_mat[:,0:6], 1) # total enhancer bps for different chrom enhancers
+        totalEnhancer = sum(totEnhancerPerChromLabel)
+        # chromEnhFracsSelf = totEnhancer /(sum(totEnhancer)) # the fraction of total enhancer labels
+
+        enhOverlap_enhNorm = overlap_mat[:, 0:6]/totalEnhancer # ratio of chrom enhancer labels for labels of segway (notice that it is normalized by the total enhancer labels, this will read: cell i,j has the r amount of total chrom enhancer labels labeld with segway i label and chrom j label)
+        chromEnhFrac = np.sum(enhOverlap_enhNorm, axis = 1)
+    
+        #totEnhancer = np.sum(overlap_mat[:,0:6], 1) # total bps for chrom enhancers # ***
+        #chromEnhFrac = totEnhancer /(sum(totEnhancer)) # ratio of bs for chrom enhancers #***
+
         sumCovVal = np.zeros(len(segwayAxis_list))
         meanLog = np.zeros(len(segwayAxis_list))
         for i in range(len(segwayAxis_list)):
-            sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6])
-            meanLog[i] = np.mean(obs_exp_log[i, 0:6])
-
-        totEnhancer = np.sum(overlap_mat[:,0:6], 1)
-        chromEnhFrac = totEnhancer /(sum(totEnhancer))
+            #sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6]) #***
+            sumCovVal[i] = np.sum(enhOverlap_enhNorm[i,0:6]* obs_exp_log[i, 0:6])
+            #meanLog[i] = np.mean(obs_exp_log[i, 0:6])
+            meanLog[i] = sumCovVal[i] / chromEnhFrac[i]
 
         #book = np.argsort(sumCovVal)
         #for i in book:
@@ -567,14 +692,18 @@ for annAccession in annAccessionList[0:30]:
         # find the rows with label Enhancer (just that)
     # get the coverage ratio from the cells with log > .3
 
+### sumCovVal divided by fracs will give me the mean logs
+
 ##### now parsing it all
 ########################################
 
 allMatch 
 selfMatch
 
-selfCov = {}
-allCov = {}
+selfCov = {} # for each Segway, it's own chromhmm
+allCov = {} # for each segway, all the chroms
+# TODO: skip the label with < .3 obs/exp
+
 for annAccession in annAccessionList[0:30]:
 
     if not(annAccession in list(selfMatch.keys())):
@@ -582,18 +711,28 @@ for annAccession in annAccessionList[0:30]:
 
     selfMatchThis = selfMatch[annAccession]
 
-    sumCovVal = selfMatchThis[1]
+    # getting the top index for the self overlap
+    sumCovVal = selfMatchThis[1]  # this can be normalized
     book = np.argsort(sumCovVal)[::-1]
 
     topIndsSelf = book[0:3]
 
     fracs = selfMatchThis[2]
+    print('SELF: coverage with the top 3 labels')
     print(sum(fracs[topIndsSelf]))
+    print('SELF: coverage with the first lael')
+    print(fracs[topIndsSelf[0]])
+    print('-------')
 
+    # the mean log ratio overlap
+    print('SELF: the mean Log OBS/EXP overlap - 6 chrom labels')
     print(selfMatchThis[3][topIndsSelf])
+
+    #print(sum(sumCovVal[topIndsSelf])*sum(fracs[topIndsSelf]))
 
     selfCov[annAccession] = sum(fracs[topIndsSelf])
 
+    print('top 3 labels')
     labels = selfMatchThis[0]
     for ind in topIndsSelf:
         print(labels[ind])
@@ -605,6 +744,8 @@ for annAccession in annAccessionList[0:30]:
     segLabels = allMatchThis[0]
 
     otherCov = {}
+    # for each segway, I get the overlap data from its own chrom,
+    # and I get the overlap data from all other chroms.
     for nonSelfAccession in nonKeys:
 
         sumCovVal = allMatchThis[1][nonSelfAccession]
@@ -612,15 +753,18 @@ for annAccession in annAccessionList[0:30]:
 
         topInds = book[0:3]
         fracs = allMatchThis[2][nonSelfAccession]
-        print(sum(fracs[topIndsSelf]))
-        
+        print('coverage with the SELF label for NONSELF')
+        print(fracs[topIndsSelf[0]])
+        #print(sum(fracs[topIndsSelf]))
+
+        print('coverage with the NONSELF label')
+        print(fracs[topInds[0]])
         print(sum(fracs[topInds]))
 
         minMeanLogNonSelf = (allMatchThis[3][nonSelfAccession][topInds])
-        
         print(minMeanLogNonSelf)
-        print(selfMatchThis[3][topIndsSelf])
 
+        print(selfMatchThis[3][topIndsSelf[0]])
 
         for ind in topInds:
             print(labels[ind])
@@ -641,7 +785,9 @@ plt.hist(sib)
 plt.show()
 
 
-# TODO: what coverage do I get at that same level of significance (log ratio overlap)
+# TODO: what coverage do I get at that same level of significance (log ratio overlap)?
 # regarding the coverage, level of significance doe snot matter, as a Quies might have high significance level
 # for the other samples, since, it is the other sample!!! BUT, where it is an active lable, we definitley have lower
-# significance level for the other thing. That is why it doesn't matter 
+# significance level for the other thing. That is why it doesn't matter
+
+# TODO: document the whole process you did here. 
