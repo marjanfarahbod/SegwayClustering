@@ -143,12 +143,51 @@ chromCoverage_merged[:, 9] = chromCoverage[:, 16] # het
 chromCoverage_merged[:, 10] = chromCoverage[:, 17] # Quis
 
 plt.boxplot(segwayCoverage)
+plt.ylim((-.1,.85))
 plt.show()
 
+fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(9, 4))
+
+# rectangular box plot
+bplot1 = axs[0].boxplot(segwayCoverage,
+                    vert=True,  # vertical box alignment
+                    patch_artist=True,
+                    showfliers=False)  # color
+axs[0].set_title('Rectangular box plot')
+axs[0].set_ylim((-.1, 1))
+
+# notch shape box plot
+bplot2 = axs[1].boxplot(chromCoverage_merged,
+                    vert=True,  # vertical box alignment
+                    patch_artist=True,
+                    showfliers=False)  # fill with color
+axs[1].set_title('Rectangular box plot')
+axs[1].set_ylim((-.1, 1))
+
+#plt.show()
+# fill with colors
+colors = ['pink', 'lightblue']
+color = 'gray'
+for bplot in (bplot1, bplot2):
+    for patch in bplot['boxes']:
+        patch.set_facecolor(color)
+            
+plt.show()
+
+# adding horizontal grid lines
+for ax in [ax1, ax2]:
+    ax.yaxis.grid(True)
+    ax.set_xlabel('Three separate samples')
+    ax.set_ylabel('Observed values')
+
+plt.show()
+
+fix, axs = plt.subplots(nrow1,2, )
 plt.boxplot(chromCoverage_merged)
 plt.show()
 
 plt.boxplot(chromCoverage)
+plt.ylim((0,.85))
 plt.show()
 
 
@@ -299,7 +338,7 @@ for annAccession in annAccessionList:
 
 # what fraction of base-pairs from chmm enhancer regions were covered by Segway Enhacer/enhancerLow with more than log ratio .3
 
-segwayLabels = ['EnhancerLow', 'Enhancer', 'PromoterFlanking', 'Promoter', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
+segwayLabels = ['Enhancer', 'EnhancerLow', 'Promoter', 'PromoterFlanking', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
 
 # ITSELF
 # bestmatch
@@ -416,7 +455,7 @@ for annAccession in annAccessionList[0:10]:
 ########################################
 
 
-segwayLabels = ['EnhancerLow', 'Enhancer', 'PromoterFlanking', 'Promoter', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
+segwayLabels = ['Enhancer', 'EnhancerLow', 'Promoter', 'PromoterFlanking', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
 
 allMatch = {}
 #selfMatch = {}
@@ -521,22 +560,23 @@ for annAccession in annAccessionList[0:30]:
     obs_exp_log = np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0))
     obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
     
-    totEnhancerPerChromLabel = np.sum(overlap_mat[:,0:6], 1) # total enhancer bps for different chrom enhancers
+    totEnhancerPerChromLabel = np.sum(overlap_mat[:, [0,1,3,4]], 1) # total enhancer bps for different chrom enhancers
     totalEnhancer = sum(totEnhancerPerChromLabel)
     # chromEnhFracsSelf = totEnhancer /(sum(totEnhancer)) # the fraction of total enhancer labels
 
-    enhOverlap_enhNorm = overlap_mat[:, 0:6]/totalEnhancer # ratio of chrom enhancer labels for labels of segway (notice that it is normalized by the total enhancer labels, this will read: cell i,j has the r amount of total chrom enhancer labels labeld with segway i label and chrom j label)
+    enhOverlap_enhNorm = overlap_mat[:, [0,1,3,4]]/totalEnhancer # ratio of chrom enhancer labels for labels of segway (notice that it is normalized by the total enhancer labels, this will read: cell i,j has the r amount of total chrom enhancer labels labeld with segway i label and chrom j label)
     chromEnhFracsSelf = np.sum(enhOverlap_enhNorm, axis = 1)
     
     #chromEnhFracsSelf = np.sum(overlap_mat_colNorm[:, 0:6], axis =1)
 
     #  getting the (overlap-ratio * logoe-ratio) of the chrom enhancers, for each segway labels
     # the meanLog has the average of the above value for the coverage of the ChromEnhancer label
+    obs_exp_log_enh = obs_exp_log[:, [0,1,3,4]]
     sumCovVal = np.zeros(len(segwayAxis_list))
     meanLog = np.zeros(len(segwayAxis_list))
     for i in range(len(segwayAxis_list)):
         #sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6]) # ***
-        sumCovVal[i] = np.sum(enhOverlap_enhNorm[i,0:6]* obs_exp_log[i, 0:6])
+        sumCovVal[i] = np.sum(enhOverlap_enhNorm[i,:]* obs_exp_log_enh[i,:])
         #meanLog[i] = np.mean(obs_exp_log[i, 0:6])
         meanLog[i] = sumCovVal[i] / chromEnhFracsSelf[i]
 
@@ -654,12 +694,11 @@ for annAccession in annAccessionList[0:30]:
         obs_exp_log = np.log10(obs_exp, out=np.zeros_like(obs_exp), where=(obs_exp!=0))
         obs_exp_log = np.where(obs_exp_log < 0, 0, obs_exp_log)
 
-            
-        totEnhancerPerChromLabel = np.sum(overlap_mat[:,0:6], 1) # total enhancer bps for different chrom enhancers
+        totEnhancerPerChromLabel = np.sum(overlap_mat[:,[0,1,3,4]], 1) # total enhancer bps for different chrom enhancers
         totalEnhancer = sum(totEnhancerPerChromLabel)
         # chromEnhFracsSelf = totEnhancer /(sum(totEnhancer)) # the fraction of total enhancer labels
 
-        enhOverlap_enhNorm = overlap_mat[:, 0:6]/totalEnhancer # ratio of chrom enhancer labels for labels of segway (notice that it is normalized by the total enhancer labels, this will read: cell i,j has the r amount of total chrom enhancer labels labeld with segway i label and chrom j label)
+        enhOverlap_enhNorm = overlap_mat[:, [0,1,3,4]]/totalEnhancer # ratio of chrom enhancer labels for labels of segway (notice that it is normalized by the total enhancer labels, this will read: cell i,j has the r amount of total chrom enhancer labels labeld with segway i label and chrom j label)
         chromEnhFrac = np.sum(enhOverlap_enhNorm, axis = 1)
     
         #totEnhancer = np.sum(overlap_mat[:,0:6], 1) # total bps for chrom enhancers # ***
@@ -669,7 +708,7 @@ for annAccession in annAccessionList[0:30]:
         meanLog = np.zeros(len(segwayAxis_list))
         for i in range(len(segwayAxis_list)):
             #sumCovVal[i] = np.sum(overlap_mat_colNorm[i,0:6]* obs_exp_log[i, 0:6]) #***
-            sumCovVal[i] = np.sum(enhOverlap_enhNorm[i,0:6]* obs_exp_log[i, 0:6])
+            sumCovVal[i] = np.sum(enhOverlap_enhNorm[i,:]* obs_exp_log[i, [0,1,3,4]])
             #meanLog[i] = np.mean(obs_exp_log[i, 0:6])
             meanLog[i] = sumCovVal[i] / chromEnhFrac[i]
 
@@ -700,16 +739,27 @@ for annAccession in annAccessionList[0:30]:
 allMatch 
 selfMatch
 
+labelColor = np.zeros((31,105))
+labelCoverage = np.zeros((31,105))
+labelCluster = np.zeros((31,105))
+labelCovOther = np.zeros((31,105))
+labelGenomeCover = np.zeros((31,105))
+overlapLog = np.zeros((31,105))
+
 selfCov = {} # for each Segway, it's own chromhmm
 allCov = {} # for each segway, all the chroms
 # TODO: skip the label with < .3 obs/exp
 
-for annAccession in annAccessionList[0:30]:
+for  s, annAccession in enumerate(annAccessionList[0:30]):
 
     if not(annAccession in list(selfMatch.keys())):
         continue
 
+    #print('****************************************')
+    #print('****************************************')
     selfMatchThis = selfMatch[annAccession]
+    #print(annAccession)
+    #print(s)
 
     # getting the top index for the self overlap
     sumCovVal = selfMatchThis[1]  # this can be normalized
@@ -718,24 +768,42 @@ for annAccession in annAccessionList[0:30]:
     topIndsSelf = book[0:3]
 
     fracs = selfMatchThis[2]
-    print('SELF: coverage with the top 3 labels')
-    print(sum(fracs[topIndsSelf]))
-    print('SELF: coverage with the first lael')
-    print(fracs[topIndsSelf[0]])
-    print('-------')
+    #print('SELF: coverage with the top 3 labels')
+    #print(sum(fracs[topIndsSelf]))
+    #print('SELF: coverage with the first lael')
+    #print(fracs[topIndsSelf[0]])
+    #print('-------')
 
     # the mean log ratio overlap
-    print('SELF: the mean Log OBS/EXP overlap - 6 chrom labels')
-    print(selfMatchThis[3][topIndsSelf])
+    #print('SELF: the mean Log OBS/EXP overlap - 4 chrom labels')
+    #print(selfMatchThis[3][topIndsSelf])
 
     #print(sum(sumCovVal[topIndsSelf])*sum(fracs[topIndsSelf]))
 
     selfCov[annAccession] = sum(fracs[topIndsSelf])
 
-    print('top 3 labels')
+    #print('top 3 labels')
     labels = selfMatchThis[0]
-    for ind in topIndsSelf:
-        print(labels[ind])
+    #for ind in topIndsSelf:
+    #   print(labels[ind])
+
+    thisLabel = labels[topIndsSelf[0]]
+    thisTerm = thisLabel.split('_')[1]
+    termIndSelf = segwayLabels.index(thisTerm)
+
+    labelColor[s,s] = termIndSelf
+    labelCoverage[s,s] = fracs[topIndsSelf[0]]
+    labelCluster[s,s] = thisLabel.split('_')[0]
+    labelCovOther[s,s] = fracs[topIndsSelf[0]]
+    labelGenomeCover[s,s] = float(thisLabel.split('_')[2])
+    overlapLog[s,s] = selfMatchThis[3][topIndsSelf[0]]
+
+    print('-----')
+    print(s)
+    print(thisLabel)
+    print(thisLabel.split('_')[0])
+    print(termIndSelf)
+    print('--')
 
     allMatchThis = allMatch[annAccession]
 
@@ -748,28 +816,44 @@ for annAccession in annAccessionList[0:30]:
     # and I get the overlap data from all other chroms.
     for nonSelfAccession in nonKeys:
 
+        #print(nonSelfAccession)
+
+        c = annAccessionList.index(nonSelfAccession)
+        #print(c)
+
         sumCovVal = allMatchThis[1][nonSelfAccession]
         book = np.argsort(sumCovVal)[::-1]
 
         topInds = book[0:3]
         fracs = allMatchThis[2][nonSelfAccession]
-        print('coverage with the SELF label for NONSELF')
-        print(fracs[topIndsSelf[0]])
+        #print('coverage with the SELF label for NONSELF')
+        #print(fracs[topIndsSelf[0]])
         #print(sum(fracs[topIndsSelf]))
 
-        print('coverage with the NONSELF label')
-        print(fracs[topInds[0]])
-        print(sum(fracs[topInds]))
+        thisLabel = labels[topInds[0]]
+        #print(thisLabel)
+        thisTerm = thisLabel.split('_')[1]
+        termInd = segwayLabels.index(thisTerm)
+
+        labelColor[s,c] = termInd
+        labelCluster[s,c] = thisLabel.split('_')[0]
+        labelCoverage[s,c] = fracs[topInds[0]]
+        labelCovOther[s,c] = fracs[topIndsSelf[0]]
+        labelGenomeCover[s,c] = float(thisLabel.split('_')[2])
+        overlapLog[s,c] = allMatchThis[3][nonSelfAccession][topInds[0]]
+        #print('coverage with the NONSELF label')
+        #print(fracs[topInds[0]])
+        #print(sum(fracs[topInds]))
 
         minMeanLogNonSelf = (allMatchThis[3][nonSelfAccession][topInds])
-        print(minMeanLogNonSelf)
+        #print(minMeanLogNonSelf)
 
-        print(selfMatchThis[3][topIndsSelf[0]])
+        #print(selfMatchThis[3][topIndsSelf[0]])
 
-        for ind in topInds:
-            print(labels[ind])
+        #for ind in topInds:
+        #    print(labels[ind])
 
-        print('----------------')
+        #print('----------------')
         otherCov[nonSelfAccession] = sum(fracs[topInds])
 
     allCov[annAccession] = otherCov
@@ -783,7 +867,86 @@ sib = np.sort(otherCov/mainCov)
 
 plt.hist(sib)
 plt.show()
+sns.color_palette("tab10")
 
+gyr = ['#FFFF00','#FFC34D', '#FF0000', '#FF4500', '#008000','#940A9B' ,'#66CDAA' ,'#BDB76B' ,'#C0C0C0', '#8A91D0', '#FFFFFF']
+myColors= sns.color_palette(gyr)
+from matplotlib.colors import LinearSegmentedColormap
+
+cmap = LinearSegmentedColormap.from_list('Custom', myColors, len(myColors))
+
+labelColor = labelColor[0:30, :]
+dellc = np.delete(labelColor, [5,19], 0)
+sib = [ 5, 19, 31, 58, 69, 81, 83, 96, 97]
+dellc2 = np.delete(dellc, sib, 1)
+sns.heatmap(dellc2[0:28, 0:28], cmap=cmap)
+sns.heatmap(labelColor[0:28, 0:28], cmap=cmap)
+sns.heatmap(dellc[0:28, 0:28], cmap=cmap)
+plt.show()
+
+cov = labelCoverage[0:30, :]
+delcov = np.delete(cov, [5,19], 0)
+sib = [ 5, 19, 31, 58, 69, 81, 83, 96, 97]
+delcov2 = np.delete(delcov, sib, 1)
+sns.heatmap(delcov2[0:28, 0:28])
+plt.show()
+
+covo = labelCovOther[0:30, :]
+delcovo = np.delete(covo, [5,19], 0)
+sib = [ 5, 19, 31, 58, 69, 81, 83, 96, 97]
+delcovo2 = np.delete(delcovo, sib, 1)
+delcovo2[np.where(delcovo2 > .5)] = .5
+sns.heatmap(delcovo2[0:28, 0:28])
+plt.show()
+
+plt.boxplot(np.diag(delcovo2[0:28, 0:28]))
+plt.show() # give me the specific log ratio overlap
+# TODO: I want to say we recover # this percentage of the enhancers labels with a specific overlap
+
+lclust = labelCluster[0:30, :]
+dellclust = np.delete(lclust, [5,19], 1)
+sib = [ 5, 19, 31, 58, 69, 81, 83, 96, 97]
+dellclust2 = np.delete(dellclust, sib, 0)
+#delcovo2[np.where(delcovo2 > .5)] = .5
+sns.heatmap(dellclust2[0:28, 0:28], annot=True, cmap='Paired')
+plt.show()
+
+lgc = labelGenomeCover[0:30, :]
+dellgc = np.delete(lgc, [5,19], 1)
+sib = [ 5, 19, 31, 58, 69, 81, 83, 96, 97]
+dellgc2 = np.delete(dellgc, sib, 0)
+#delcovo2[np.where(delcovo2 > .5)] = .5
+sns.heatmap(dellgc2[0:28, 0:28], annot=True, fmt='.2f')
+plt.show()
+
+
+oll = overlapLog[0:30, :]
+deloll = np.delete(oll, [5,19], 1)
+sib = [ 5, 19, 31, 58, 69, 81, 83, 96, 97]
+deloll2 = np.delete(deloll, sib, 0)
+#delcovo2[np.where(delcovo2 > .5)] = .5
+sns.heatmap(deloll2[0:28, 0:28])
+plt.show()
+
+
+
+fig, axs = plt.subplots(3, 2, figsize=(10,14))
+
+s1= sns.heatmap(dellclust2[0:28, 0:28], annot=True, cmap='Paired', ax=axs[0,0])
+s1.set_title('cluster ID for the best match label')
+#sns.heatmap(labelCluster[0:30, 0:30], annot=True, cmap='Paired', ax=axs[1])
+s2=sns.heatmap(dellc2[0:28, 0:28], cmap=cmap, ax=axs[0,1])
+s2.set_title('cluster type for the best match label- ENCODE colors')
+#sns.heatmap(dellgc2[0:28, 0:28], annot=True, fmt='.2f', ax=axs[1,1])
+s3=sns.heatmap(dellgc2[0:28, 0:28], ax=axs[1,0])
+s3.set_title('genome coverage of the best match label')
+s4=sns.heatmap(delcov2[0:28, 0:28], ax=axs[1,1])
+s4.set_title('enhancer region coverage for the best match label')
+s5=sns.heatmap(deloll2[0:28, 0:28], ax=axs[2,0])
+s5.set_title('log obs over expected for the best match label')
+s6=sns.heatmap(delcovo2[0:28, 0:28], ax=axs[2,1])
+s6.set_title('coverage of the enhancer region by the diagonal label')
+plt.show()
 
 # TODO: what coverage do I get at that same level of significance (log ratio overlap)?
 # regarding the coverage, level of significance doe snot matter, as a Quies might have high significance level
