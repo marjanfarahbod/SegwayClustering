@@ -63,6 +63,18 @@ There are two bed files in the GCP storage:
 The GCP ID was given to us with experiment IDs along with tissue names. In local I use tissue names rather than the IDs to name folders for different samples. While the IDs stay unique for tissue names, the <dir> in the GCP changes for each segway run. In the code I had to do some matching and the matching part might vary for different runs based on the meta file format.
 the code is in getbedsfromGCP.py
 
+### Cedar run for Segway and Segtools
+
+#### bash files (environment settings)
+gettingSegtools_bash.sh  (all but GMTK)
+gettingSegway_bash.sh
+gettingGenomedata_bash.sh
+
+#### python wrappers
+wrapperForGenomeData.py
+wrapperForSegway.py
+wrapperForSegtools.py
+
 
 
 
