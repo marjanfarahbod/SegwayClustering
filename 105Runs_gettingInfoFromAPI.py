@@ -6,16 +6,6 @@
 # 3. Get the rest of files
 # 4. get the tissue label or smth
 #
-# pre-code notes:
-# 1. loging to the page for the samples. DONE
-# 2. get JSON view. DONE
-#
-# I think I will need for each annotation, a folder. But then I am going to need a key file, where I have the donor, tissue and the annotation key - so I can look at annotations by tissue.
-#
-# 1. Get the annotation lists and make folders
-# 2. Get the RNA-seq files 
-# 3. Get the rest of files
-#
 #
 ###################################################
 # 0. Initials
