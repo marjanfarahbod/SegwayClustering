@@ -15,6 +15,7 @@ print(parameterIndex)
 ### cedar add TODO: change to project address - DONE, but nevermind, project has not much space
 # dataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 dataFolder = '/home/mfarahbo/scratch/segway112Samples/'
+projectDataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 
 # load the address file
 inputFile = dataFolder + 'accessionList.pkl'
@@ -26,7 +27,8 @@ segwayAccession = accessionList[int(parameterIndex)]
 
 # sampleFolder
 segdir = dataFolder + segwayAccession + '/'
-previousBed = Path(segdir + 'segOutput/segway.bed.gz')
+projectSegdir = projectDataFolder + segwayAccession + '/'
+previousBed = Path(projectSegdir + 'segOutput/segway.bed.gz')
 
 ### TODO here, check to see if the segway output folder contains the .bed file, we skip the sample, otherwise we go on - DONE
 print(segdir)
@@ -56,7 +58,7 @@ if os.path.isdir(annotateFolder):
     
 os.system('mkdir %s' %(annotateFolder))
 
-segwayOutputFolder = segdir + 'segOutput/'
+segwayOutputFolder = projectSegdir + 'segOutput/'
 os.system('mkdir %s' %(segwayOutputFolder))
 
 # get the label count

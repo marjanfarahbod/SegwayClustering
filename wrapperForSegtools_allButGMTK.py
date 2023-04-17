@@ -4,14 +4,16 @@
 import math
 import os
 import shutil
-import pickle
+# import pickle # not python2 compatible
 import glob
+import os.path
 
 parameterIndex = int(os.environ['SLURM_ARRAY_TASK_ID'])
 print(parameterIndex)
 
 ### cedar add
 dataFolder = '/home/mfarahbo/scratch/segway112Samples/'
+projectDataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 
 # load the accession file - the python2 compatible version
 accessionFile = dataFolder + 'accessionList.txt'
@@ -30,14 +32,15 @@ segwayAccession = lines[parameterIndex].strip()
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # sampleFolder
-segdir = dataFolder + segwayAccession + '/'
+#segdir = dataFolder + segwayAccession + '/'
+segdir = projectDataFolder + segwayAccession + '/' # where we read from and write to
 
 outputFolder = segdir + 'segOutput/'
 genomeDataFile = segdir + 'files.genomedata'
 
 # if segway.bed is not unzipped, unzip it
 bedFile = outputFolder + 'segway.bed'
-if not(bedFile.is_file()):
+if not(os.path.isfile(bedFile)):
     # unzip the .bed file
     command = 'gunzip %ssegway.bed.gz %ssegway.bed' %(outputFolder, outputFolder)
     os.system(command)

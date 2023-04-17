@@ -12,6 +12,7 @@ print(parameterIndex)
 
 ### cedar add
 dataFolder = '/home/mfarahbo/scratch/segway112Samples/'
+projectDataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 
 # load the address file
 ### TODO: this needs to change to get compatible to python 2. 
@@ -23,31 +24,31 @@ with open(inputFile, 'rb') as f:
 segwayAccession = accessionList[int(parameterIndex)]
 
 # sampleFolder
-segdir = dataFolder + segwayAccession + '/'
+segdir = projectDataFolder + segwayAccession + '/'
 
 outputFolder = segdir + 'segOutput/'
-genomeDataFile = segdir + 'files.genomedata'
+#genomeDataFile = segdir + 'files.genomedata'
 
 # unzip the .bed file
-command = 'gunzip %ssegway.bed.gz %ssegway.bed' %(outputFolder)
-os.system(command)
+#command = 'gunzip %ssegway.bed.gz %ssegway.bed' %(outputFolder)
+#os.system(command)
 
-bedFile = outputFolder + 'segway.bed'
+#bedFile = outputFolder + 'segway.bed'
 
 #----- segtools signal-distribution
 #'segtools-signal-distribution {} {} --outdir={}'.format(segbed, gd, outdir))
-signalDistFolder = '%scall_signal_distribution/' %(outputFolder)
-os.mkdir(signalDistFolder)
-command = 'segtools-signal-distribution %s %s --outdir=%s' %(bedFile, genomeDataFile, signalDistFolder)
-os.system(command)
+#signalDistFolder = '%scall_signal_distribution/' %(outputFolder)
+#os.mkdir(signalDistFolder)
+#command = 'segtools-signal-distribution %s %s --outdir=%s' %(bedFile, genomeDataFile, signalDistFolder)
+#os.system(command)
 
 #----- segtools-aggregation command
 # 'segtools-aggregation --normalize --mode=gene {} {} --outdir={}'.format(segbed, gtf, featureAggFolder)
-featureAggFolder = '%scall_feature_aggregation/' %(outputFolder)
-os.mkdir(featureAggFolder)
-gtfFile = '/home/mfarahbo/scratch/gencode.v29.primary_assembly.annotation_UCSC_names.gtf'
-command = 'segtools-aggregation --normalize --mode=gene --flank-bases=10000 %s %s --outdir=%s' %(bedFile, gtfFile, featureAggFolder)
-os.system(command)
+#featureAggFolder = '%scall_feature_aggregation/' %(outputFolder)
+#os.mkdir(featureAggFolder)
+#gtfFile = '/home/mfarahbo/scratch/gencode.v29.primary_assembly.annotation_UCSC_names.gtf'
+#command = 'segtools-aggregation --normalize --mode=gene --flank-bases=10000 %s %s --outdir=%s' %(bedFile, gtfFile, featureAggFolder)
+#os.system(command)
 
 #signal distribution: bed file and genomedata
 #aggregation: bed file and GTF file
@@ -56,10 +57,10 @@ os.system(command)
 os.chdir(outputFolder)
 
 #----- segtools-length-distribution command
-os.system('segtools-length-distribution segway.bed')
+# os.system('segtools-length-distribution segway.bed')
 
 #----- segtools-gmtk-parameters command
-# os.system('segtools-gmtk-parameters params.params')
+os.system('segtools-gmtk-parameters params.params')
 
 # Draft
 ########################################
