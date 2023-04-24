@@ -8,6 +8,7 @@ import pandas as pd
 # load the model
 runFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/runs/'
 model_file = runFolder + "run02/model_278exp_reg0.028_auc0.86_wholeData.pickle.gz"
+model_file = runFolder + "run03/model_300_reg.020_auc0.89V04.pickle.gz"
 with gzip.open(model_file, "r") as f:
     the_model = pickle.load(f)
 
@@ -52,13 +53,13 @@ for ann in annInfo_list:
     dftr = dft[feature_names]
 
     labels = the_model.predict(dftr)
-    mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
     data = np.column_stack([range(len(labels)), labels])
     np.savetxt(mnemonics_file, data, fmt=['%s\t', '%s'])
     # write the mnemonics file
     
     probs = np.round(the_model.predict_proba(dftr), 5)
-    probs_file = sampleFolderAdd + 'probs_v02.csv'
+    probs_file = sampleFolderAdd + 'probs_v04.csv'
     probsdf = pd.DataFrame(probs, index=range(probs.shape[0]), columns=the_model.classes_)
     probsdf.to_csv(probs_file)
     # write the mnemonics file
@@ -148,9 +149,62 @@ sns.heatmap(plot_data_z_thr)
 plt.show()
 plt.close('all')
 
-# for the new samples (May run)
+
+# for the home run (the last 112 batch)
 ########################################
 
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+dataSubFolder = 'the112batch/'
+
+##### IMPORTANT: classifier training data
+feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
+
+# load the address file
+inputFile = localDataFolder + 'accessionList.pkl'
+with open(inputFile, 'rb') as f:
+    accessionList = pickle.load(f)
+
+for i,accession in enumerate(accessionList[2:15]):
+
+    index = i
+    print(index)
+    print(accession)
+
+    sampleFolderAdd = dataFolder + dataSubFolder + accession + '/'
+
+    signal_file = sampleFolderAdd + 'segOutput/call_signal_distribution/signal_distribution.tab'
+    feature_file = sampleFolderAdd + 'segOutput/call_feature_aggregation/feature_aggregation.tab'
+    mapping_file = sampleFolderAdd + 'trackname_assay.txt'
+    track_assay_map = {}
+    inputTrack_list = []
+    with open(mapping_file) as inputFile:
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            inputTrack_list.append(fields[1])
+
+    ann_features, ann_label_bases, ann_feature_names = features_from_segtools_dir(feature_file, signal_file, track_assay_map)
+
+    
+    df = pd.DataFrame(ann_features)
+    dft = df.T
+    dftr = dft[feature_names]
+
+    labels = the_model.predict(dftr)
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
+    data = np.column_stack([range(len(labels)), labels])
+    np.savetxt(mnemonics_file, data, fmt=['%s\t', '%s'])
+    # write the mnemonics file
+    
+    probs = np.round(the_model.predict_proba(dftr), 5)
+    probs_file = sampleFolderAdd + 'probs_v03.csv'
+    probsdf = pd.DataFrame(probs, index=range(probs.shape[0]), columns=the_model.classes_)
+    probsdf.to_csv(probs_file)
+    # write the mnemonics file
+
+
+# for the new samples (May run)
+########################################
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
 dataSubFolder = 'testBatch_May112022/'
