@@ -197,7 +197,7 @@ for i,accession in enumerate(accessionList[2:15]):
     # write the mnemonics file
     
     probs = np.round(the_model.predict_proba(dftr), 5)
-    probs_file = sampleFolderAdd + 'probs_v03.csv'
+    probs_file = sampleFolderAdd + 'probs_v04.csv'
     probsdf = pd.DataFrame(probs, index=range(probs.shape[0]), columns=the_model.classes_)
     probsdf.to_csv(probs_file)
     # write the mnemonics file
