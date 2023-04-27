@@ -1,4 +1,11 @@
+# The new apply function (instead of the one from the Max's code)
+# 0. Initials
+# 1. For the 105 run batch, with the updated classifier
+# 2. for the home run (the last 112 batch)
 
+########################################
+# 0. Initials
+########################################
 
 import util # this is for features_from_segtools_dir
 import gzip
@@ -26,6 +33,9 @@ inputFile = dataFolder + dataSubFolder + inputFileName
 with open(inputFile, 'rb') as f:
     annInfo_list = pickle.load(f)
 
+########################################
+# 1. For the 105 run batch, with the updated classifier
+########################################
 
 for ann in annInfo_list:
 
@@ -54,7 +64,7 @@ for ann in annInfo_list:
 
     labels = the_model.predict(dftr)
     mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
-    data = np.column_stack([range(len(labels)), labels])
+    data = np.column_stack([dftr.index, labels])
     np.savetxt(mnemonics_file, data, fmt=['%s\t', '%s'])
     # write the mnemonics file
     
@@ -89,7 +99,6 @@ for ann in annInfo_list:
             fields = line.strip().split()
             track_assay_map[fields[0]] = fields[1]
             inputTrack_list.append(fields[1])
-
     ann_features, ann_label_bases, ann_feature_names = features_from_segtools_dir(feature_file, signal_file, track_assay_map)
 
     df = pd.DataFrame(ann_features)
@@ -133,7 +142,6 @@ for i in range(len(term_list)):
     term_mean[i,] = term_sum[i,] / term_count[i]
 
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -150,7 +158,8 @@ plt.show()
 plt.close('all')
 
 
-# for the home run (the last 112 batch)
+########################################
+# 2. for the home run (the last 112 batch)
 ########################################
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
@@ -160,7 +169,7 @@ dataSubFolder = 'the112batch/'
 feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
 
 # load the address file
-inputFile = localDataFolder + 'accessionList.pkl'
+inputFile = dataFolder + dataSubFolder + 'accessionList.pkl'
 with open(inputFile, 'rb') as f:
     accessionList = pickle.load(f)
 
@@ -190,9 +199,11 @@ for i,accession in enumerate(accessionList[2:15]):
     dft = df.T
     dftr = dft[feature_names]
 
+    # TODO: fix the order of the rows, that is the problem, it is not the default order, it needs to be fixed.
+
     labels = the_model.predict(dftr)
     mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
-    data = np.column_stack([range(len(labels)), labels])
+    data = np.column_stack([dftr.index, labels])
     np.savetxt(mnemonics_file, data, fmt=['%s\t', '%s'])
     # write the mnemonics file
     
@@ -202,8 +213,8 @@ for i,accession in enumerate(accessionList[2:15]):
     probsdf.to_csv(probs_file)
     # write the mnemonics file
 
-
-# for the new samples (May run)
+########################################
+# 3. for the new samples (May run)
 ########################################
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
@@ -248,7 +259,7 @@ for i,runID in enumerate(runIDs):
 
     labels = the_model.predict(dftr)
     mnemonics_file = sampleFolderAdd + 'mnemonics_v03.txt'
-    data = np.column_stack([range(len(labels)), labels])
+    data = np.column_stack([dftr.index, labels])
     np.savetxt(mnemonics_file, data, fmt=['%s\t', '%s'])
     # write the mnemonics file
     
@@ -281,7 +292,7 @@ with open(outputFile, 'wb') as output:
     pickle.dump(ID_mnemonics, output)
 
 
-    # the original 16 features that go to the classifier - just keeping it here
+ # the original 16 features that go to the classifier - just keeping it here
 feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
 
 feature_names_reorder = ['(09) initial exon', "(08) 5' flanking (1-1000 bp)", '(10) initial intron','(11) internal exons', '(12) internal introns', '(13) terminal exon', '(14) terminal intron', "(15) 3' flanking (1-1000 bp)",  "(07) 5' flanking (1000-10000 bp)", "(16) 3' flanking (1000-10000 bp)", '(04) H3K4me3','(05) H3K27ac',  '(06) H3K4me1','(03) H3K36me3', '(02) H3K27me3', '(01) H3K9me3']
