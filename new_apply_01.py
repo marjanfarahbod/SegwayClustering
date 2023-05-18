@@ -1,7 +1,8 @@
 # The new apply function (instead of the one from the Max's code)
 # 0. Initials
 # 1. For the 105 run batch, with the updated classifier
-# 2. for the home run (the last 112 batch)
+# 2. for the home run the38batch
+# 3. for the Mayrun the92batch
 
 ########################################
 # 0. Initials
@@ -159,21 +160,21 @@ plt.close('all')
 
 
 ########################################
-# 2. for the home run (the last 112 batch)
+# 2. for the home run (the last 38)
 ########################################
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
-dataSubFolder = 'the112batch/'
+dataSubFolder = 'the38batch/'
 
 ##### IMPORTANT: classifier training data
 feature_names = ['(09) initial exon', '(01) H3K9me3', '(10) initial intron', '(02) H3K27me3', '(11) internal exons', '(04) H3K4me3', "(16) 3' flanking (1000-10000 bp)", '(12) internal introns', '(03) H3K36me3', '(13) terminal exon', '(06) H3K4me1', '(14) terminal intron', "(07) 5' flanking (1000-10000 bp)", '(05) H3K27ac', "(15) 3' flanking (1-1000 bp)", "(08) 5' flanking (1-1000 bp)"]
 
 # load the address file
-inputFile = dataFolder + dataSubFolder + 'accessionList.pkl'
+inputFile = dataFolder + dataSubFolder + 'hg_accessionList.pkl'
 with open(inputFile, 'rb') as f:
     accessionList = pickle.load(f)
 
-for i,accession in enumerate(accessionList[2:15]):
+for i,accession in enumerate(accessionList[15:]):
 
     index = i
     print(index)
@@ -194,12 +195,13 @@ for i,accession in enumerate(accessionList[2:15]):
 
     ann_features, ann_label_bases, ann_feature_names = features_from_segtools_dir(feature_file, signal_file, track_assay_map)
 
-    
     df = pd.DataFrame(ann_features)
     dft = df.T
     dftr = dft[feature_names]
-
-    # TODO: fix the order of the rows, that is the problem, it is not the default order, it needs to be fixed.
+    rowCount = dftr.shape[0]
+    inds = np.linspace(0,rowCount-1, rowCount).astype(int)
+    indList = [str(x) for x in inds]
+    dftr = dftr.reindex(indList)
 
     labels = the_model.predict(dftr)
     mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
@@ -214,7 +216,7 @@ for i,accession in enumerate(accessionList[2:15]):
     # write the mnemonics file
 
 ########################################
-# 3. for the new samples (May run)
+# 3. for the May run
 ########################################
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
@@ -229,13 +231,13 @@ inputFile = dataFolder + dataSubFolder + runIDFile
 with open(inputFile, 'rb') as f:
     runIDs = pickle.load(f)
 
-for i,runID in enumerate(runIDs):
+for i,runID in enumerate(runIDs[46:]):
 
     index = i
     print(index)
 
-    if runID == '5857d68b-e559-4776-9c12-a6e10aea7f76': # this runID doesn't have the signal_dist file
-        continue
+    #if runID == '5857d68b-e559-4776-9c12-a6e10aea7f76': # this runID doesn't have the signal_dist file
+    #    continue
 
     sampleFolderAdd = dataFolder + dataSubFolder + runID + '/'
 
@@ -258,18 +260,16 @@ for i,runID in enumerate(runIDs):
     dftr = dft[feature_names]
 
     labels = the_model.predict(dftr)
-    mnemonics_file = sampleFolderAdd + 'mnemonics_v03.txt'
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
     data = np.column_stack([dftr.index, labels])
     np.savetxt(mnemonics_file, data, fmt=['%s\t', '%s'])
     # write the mnemonics file
     
     probs = np.round(the_model.predict_proba(dftr), 5)
-    probs_file = sampleFolderAdd + 'probs_v03.csv'
+    probs_file = sampleFolderAdd + 'probs_v04.csv'
     probsdf = pd.DataFrame(probs, index=range(probs.shape[0]), columns=the_model.classes_)
     probsdf.to_csv(probs_file)
     # write the mnemonics file
-
-
 
 # writing all the mnemonic files into one file
 ID_mnemonics = {}
