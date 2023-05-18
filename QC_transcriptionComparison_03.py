@@ -12,6 +12,7 @@
 ## 2.1. preping expression data
 ## 2.2. preping annotation data
 # 3. Comparing the annotation labels to the genomic regions and transcriptomic data
+# 4. Preprocessing transcriptomic data 
 
 ########################################
 # 0. Initials 
@@ -103,8 +104,8 @@ with open(inputFile, 'rb') as f:
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 annAccessionList = list(annMeta.keys())
-# annAccession = annAccessionList[3]
 
+## Please see QC_transcriptionComparison_util.py for function transcriptFile_preprocessing()
 for annAccession in annAccessionList:
     
     sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
@@ -247,7 +248,7 @@ def annotation_generalInfo_clusters(bedFileAdd):
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # code for all files:
-# TODO: the code does the sord and filter for .bed files, it should be modified to call the function as well
+# TODO: the code does the sort and filter for .bed files, it should be modified to call the function as well
 
 for annAccession in annAccessionList:
     
@@ -843,3 +844,134 @@ plotMat = pd.DataFrame(myMatDiv)
 sns.heatmap(plotMat)
 plt.show()
 plt.plot()
+
+########################################
+# 4. Preprocessing transcriptomic data
+########################################
+
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+# load the meta file 
+inputFileName = 'all235Annot_meta_corrected.pkl'
+inputFile = dataFolder +  outputFileName
+with open(inputFile, 'rb') as f:
+    allMeta = pickle.load(f)
+
+accessionList = list(allMeta.keys())
+
+count = 0
+for accession in accessionList:
+    annotation = allMeta[accession]
+
+    if ((('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
+        expFile = annotation['RNAseqFile'][0]
+        count+=1
+
+        print(expFile)
+        expression = {}
+        with open(expFile, 'r') as file:
+            line = file.readline() # there is one header line
+            
+            for line in file:
+                fields = line.strip().split()
+                geneID = fields[0]
+                transcriptID = fields[1]
+                
+                if geneID in expression:
+                    expression[geneID] += np.log10(float(fields[5]) + 1)
+                else:
+                    expression[geneID] = np.log10(float(fields[5]) + 1)
+                    
+        # saving expression dict
+        sampleFolderAdd = allMeta[accession]['folder']
+        expAccession = re.split('_|\.', expFile)[-2]
+        outputFile = sampleFolderAdd + 'geneExp_dict_' + expAccession + '.pkl'
+        print('printing this file %s' %(outputFile))
+        with open(outputFile, 'wb') as f:
+            pickle.dump(expression, f)
+
+
+########################################
+# 5. process the annotation file
+########################################
+
+inputFileName = 'all235Annot_meta_corrected.pkl'
+inputFile = dataFolder +  outputFileName
+with open(inputFile, 'rb') as f:
+    allMeta = pickle.load(f)
+
+accessionList = list(allMeta.keys())
+
+for accession in accessionList:
+    annotation = allMeta[accession]
+
+    if ('38batch' in annotation['folder']):
+        print('####### 38')
+        sampleFolderAdd = annotation['folder']
+        print(sampleFolderAdd)
+
+        # get the bed file
+        originalBedFile = sampleFolderAdd + 'segOutput/' + 'segway.bed.gz'
+        print(originalBedFile)
+         
+        # unzip the bed file
+        os.system('gunzip %s' %(originalBedFile))
+        originalBedFile = originalBedFile[0:-3]
+        print(originalBedFile)
+
+        # do the modifications
+        # sort the bed file
+        sortedBedFile = sampleFolderAdd + 'sortedBedFile.bed'
+        os.system('sort -V -k1,1 -k2,2 %s > %s' %(originalBedFile, sortedBedFile))
+
+        # filter the bed file 
+        filteredSortedBedFile = sampleFolderAdd + 'bedFile_filteredSorted.bed'
+        os.system("awk -F'\t' '$1 !~ \"_\"' %s > %s" %(sortedBedFile, filteredSortedBedFile))
+
+        tempFile = sampleFolderAdd + 'temp.bed'
+        os.system('grep -v "chrM" %s > %s && mv %s %s' %(filteredSortedBedFile, tempFile, tempFile, filteredSortedBedFile))
+
+        os.remove(sortedBedFile)
+    
+        # zip the .bed file
+        os.system('gzip %s' %(originalBedFile))
+
+        # zip the modified version
+        os.system('gzip %s' %(filteredSortedBedFile))
+
+    if ('May11' in annotation['folder']):
+        print('######')
+        sampleFolderAdd = annotation['folder'][0:-1]
+        print(sampleFolderAdd)
+
+        # get the bed file
+        originalBedFile = sampleFolderAdd + 'call-segway/' + 'segway.bed.gz'
+        print(originalBedFile)
+         
+        # unzip the bed file
+        os.system('gunzip %s' %(originalBedFile))
+        originalBedFile = originalBedFile[0:-3]
+        print(originalBedFile)
+
+        # do the modifications
+        # sort the bed file
+        sortedBedFile = sampleFolderAdd + 'sortedBedFile.bed'
+        os.system('sort -V -k1,1 -k2,2 %s > %s' %(originalBedFile, sortedBedFile))
+
+        # filter the bed file 
+        filteredSortedBedFile = sampleFolderAdd + 'bedFile_filteredSorted.bed'
+        os.system("awk -F'\t' '$1 !~ \"_\"' %s > %s" %(sortedBedFile, filteredSortedBedFile))
+
+        tempFile = sampleFolderAdd + 'temp.bed'
+        os.system('grep -v "chrM" %s > %s && mv %s %s' %(filteredSortedBedFile, tempFile, tempFile, filteredSortedBedFile))
+
+        os.remove(sortedBedFile)
+    
+        # zip the .bed file
+        os.system('gzip %s' %(originalBedFile))
+
+        # zip the modified version
+        os.system('gzip %s' %(filteredSortedBedFile))
+
+         
+         
