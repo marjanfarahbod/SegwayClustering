@@ -12,7 +12,9 @@
 ## 2.1. preping expression data
 ## 2.2. preping annotation data
 # 3. Comparing the annotation labels to the genomic regions and transcriptomic data
-# 4. Preprocessing transcriptomic data 
+# 4. Preprocessing transcriptomic data
+# 5. process the annotation file
+# 6. use the function to get the transcription enrichment for Segway
 
 ########################################
 # 0. Initials 
@@ -258,7 +260,6 @@ for annAccession in annAccessionList:
 
     bedFileAdd = sampleFolderAdd + bedFileName
 
-    
     files = os.listdir(sampleFolderAdd)
     for file in files:
         if file.endswith('filteredSorted.bed'):
@@ -347,7 +348,6 @@ for annAccession in annAccessionList:
         clusterListIndMap = {}
         for i in range(len(clusterList)):
             clusterListIndMap[sortedClusterList[i]] = i
-
             
         cgi = 0 # walks on the geneIDList
         ann_start = 0 # the start of the current annotation
@@ -972,6 +972,59 @@ for accession in accessionList:
 
         # zip the modified version
         os.system('gzip %s' %(filteredSortedBedFile))
+
+
+########################################
+# 6. use the function to get the transcription enrichment for Segway
+########################################
+
+from transcription_overlap import SegwayTranscriptionEnrichment
+
+# I need to do it for the 21 remaining samples with the transcriptomic data
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+# GTF data structure
+fileName = dataFolder + '/geneLists.pkl'
+with open(fileName, 'rb') as pickleFile:
+    geneListsAndIDs = pickle.load(pickleFile)
+    
+geneList = geneListsAndIDs[0]
+geneIDList = geneListsAndIDs[1]
+del geneListsAndIDs
+
+# load the meta file 
+inputFileName = 'all235Annot_meta_corrected.pkl'
+#inputFileName = 'all235Annot_meta.pkl'
+inputFile = dataFolder +  inputFileName
+with open(inputFile, 'rb') as f:
+    allMeta = pickle.load(f)
+
+accessionList = list(allMeta.keys())
+
+count = 0
+for accession in accessionList[40:]:
+    annotation = allMeta[accession]
+
+    #if ((('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
+    if(not(annotation['RNAseqFile'] == 'none')):
+        count+=1
+        print(count)
+        RNAFile = annotation['RNAseqFile'][0]
+        print(count)
+        print(accession)
+        print(RNAFile)
+
+        annotationFolder = annotation['folder']
+        print(annotationFolder)
+
+        expAccession = RNAFile[-15:-4]
+        RNAseqFile = annotationFolder +  '/geneExp_dict_' + expAccession + '.pkl'
+        annFile = annotation['bedFile']
+        mnemFile = annotationFolder + 'mnemonics_v04.txt'
+        #geneList
+        #geneIDList =
+        extension = 3000
+        SegwayTranscriptionEnrichment(annotationFolder, annFile, expFile, extension, geneList, geneIDList)
 
          
          
