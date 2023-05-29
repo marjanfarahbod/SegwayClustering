@@ -1,9 +1,19 @@
 # Collect list of samples based on accession. For each sample, record the address of the transcriptomic file, if exists. Record the address of chromhmm file, if exists.
+#
+# 0. Initials
+# 1. building the annotation meta list (with API)
+# 2. Corrections to the address
+# 3. add the plot folder
 
 import util # this is for features_from_segtools_dir
 import gzip
 import pickle
 import pandas as pd
+
+########################################
+# 0. Initials
+########################################
+
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
 # the file with most metadata
@@ -17,7 +27,7 @@ df = pd.read_table(file)
 for i,header in enumerate(list(df)):
     print('%d %s' %(i, header))
 
-#  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # the 38 runs
 dataSubFolder = 'the38batch/'
 
@@ -60,7 +70,7 @@ for i, runID in enumerate(df['cromwell ID']):
     accession_meta[accession] = sampleFolder + '/'
 
 ########################################
-# building the annotation meta list (with API)
+# 1. building the annotation meta list (with API)
 ########################################
 
 
@@ -77,11 +87,8 @@ cookies = {'_gid': 'GA1.1.455974259.1683650576', '_ga': 'GA1.1.1807347774.167572
 
 allAccession = list(accession_meta.keys())
 
-# for the 38
+# get the tissue, RNAseq and chromHMM data for the 38 and 92 samples
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-# get the tissue
-# load the list and folder address, get the transcript and chromhmm, save the data
 
 #>>>>>>>>>> TODO: add the address of the rnaseq files to the meta info. add the address of the tissue to the meta info
 accession38_92RNAseq = {}
@@ -157,7 +164,7 @@ for i in inds:
     accession38_92RNAseq[accession] = rnaSeqFiles
 
 # get the chrom data
-
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 for i in inds:
 
@@ -285,8 +292,7 @@ outputFile = dataFolder +  outputFileName
 with open(outputFile, 'wb') as f:
     pickle.dump(rawDataMerge, f)
 
-                        
-# for the 105
+# for the 105, adding it to the data
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 # General data folder
@@ -376,6 +382,60 @@ with open(outputFile, 'wb') as f:
     pickle.dump(allAccessionMeta, f)
 
 ########################################
+# 2. Corrections to the address
+########################################
+
+inputFileName = 'all235Annot_meta.pkl'
+inputFile = dataFolder +  inputFileName
+with open(inputFile, 'rb') as f:
+    allMeta = pickle.load(f)
+
+# RNAseq file address for the 92May batch have double '/', removing that
+accessionList = list(allMeta.keys())
+
+for accession in accessionList:
+    annotation = allMeta[accession]
+
+    if ((('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
+        newList = []
+        for rnaseq in annotation['RNAseqFile']:
+            add = rnaseq
+            book = add.replace('//', '/')
+            newList.append(book)
+            print(book)
+
+        allMeta[accession]['RNAseqFile'] = newList
+
+
+changeValue = 'bedFile'
+changeValue = 'folder'
+changeValue = 'chromFile'
+changeValue = 'RNAseqFile'
+for accession in accessionList:
+    annotation = allMeta[accession]
+
+    if (('38batch' in annotation['folder'])):
+        add = annotation[changeValue]
+        book = add.replace('//', '/')
+        print(book)
+
+        allMeta[accession][changeValue] = book
+
+    if (('May11' in annotation['folder'])):
+        add = annotation[changeValue]
+        book = add.replace('//', '/')
+        #book = add.replace('///', '/')
+        print(book)
+
+        allMeta[accession][changeValue] = book
+
+    
+outputFileName = 'all235Annot_meta_corrected.pkl'
+outputFile = dataFolder +  outputFileName
+with open(outputFile, 'wb') as f:
+    pickle.dump(allMeta, f)
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # how many samples has transcriptomic
 
 rnaseqCount = 0
@@ -384,3 +444,47 @@ for annot in allAccessionMeta:
         rnaseqCount+=1
 
 # we have 94 samples with RNAseq
+
+########################################
+# 3. add the plot folder
+########################################
+
+inputFileName = 'all235Annot_meta_corrected.pkl'
+#inputFileName = 'all235Annot_meta.pkl'
+inputFile = dataFolder +  inputFileName
+with open(inputFile, 'rb') as f:
+    allMeta = pickle.load(f)
+
+accessionList = list(allMeta.keys())
+
+plotRootFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/'
+count = 0
+for accession in accessionList:
+    annotation = allMeta[accession]
+    count+=1
+
+    annFolder = annotation['folder']
+    if '38batch' in annFolder:
+        annPlotFolder = plotRootFolder + 'the38batch/' + accession + '/'
+        os.mkdir(annPlotFolder)
+        allMeta[accession]['plotFolder'] = annPlotFolder
+        print(annPlotFolder)
+        print(count)
+
+    if 'May' in annFolder:
+        annPlotFolder = plotRootFolder + 'testBatch92/' + accession + '/'
+        os.mkdir(annPlotFolder)
+        allMeta[accession]['plotFolder'] = annPlotFolder
+        print(annPlotFolder)
+        print(count)
+
+    if 'testBatch105' in annFolder:
+        annPlotFolder = plotRootFolder + 'testBatch105/' + accession + '/'
+        allMeta[accession]['plotFolder'] = annPlotFolder
+        print(annPlotFolder)
+        print(count)
+        
+
+    
+
+
