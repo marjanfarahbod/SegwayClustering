@@ -12,10 +12,10 @@
 # 0. Initials
 # 0.0 The function for extracting data - Segway
 # 0.1 The function for extracting data - chromhmm
-# 1. Segway data extraction
-# 2. CHromHMM data extraction
-# 3. The AUC curve for genes which were included
-# 4. get the AUC plot
+# * Segway data extraction - function for 0.0 in transcription_overlap.py
+# * CHromHMM data extraction -  function for 0.1 in transcription_overlap.py
+# 1. The AUC curve for genes which were included
+# 2. get the AUC plot
 
 # 0. Initials 
 ########################################
@@ -32,7 +32,6 @@ from QC_transcriptionComparison_util import Gene, Exon, Annotation, AnnotationCl
 
 # General data folder
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
-dataSubFolder = 'testBatch105/fromAPI/'
 
 # GTF data structure
 fileName = dataFolder + '/geneLists.pkl'
@@ -43,18 +42,14 @@ geneList = geneListsAndIDs[0]
 geneIDList = geneListsAndIDs[1]
 del geneListsAndIDs
 
-inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+# load the meta file 
+inputFileName = 'all235Annot_meta_corrected.pkl'
+#inputFileName = 'all235Annot_meta.pkl'
+inputFile = dataFolder +  inputFileName
 with open(inputFile, 'rb') as f:
-    annMeta = pickle.load(f)
+    allMeta = pickle.load(f)
 
-sample_count = len(annMeta)
-
-annAccessionList = list(annMeta.keys())
-annAccession = annAccessionList[104]
-print(annAccession)
-
-
-# obsolete segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+accessionList = list(allMeta.keys())
 
 # How well do they do regarding the transcription data? active prmoter
 # How well do they do regarding the transcription data? transcribed region etc.
@@ -64,12 +59,6 @@ print(annAccession)
 # for each gene, get the ratio of its promoter region and its region covered with each of the labels
 # examine the distribution of these labels between the expressed and non expressed genes.
 
-# do this for both chromhmm and segway. hahaha.
-# 0. The function
-
-# 1. Segway data extraction
-# 2. CHromHMM data extraction
-
 ########################################
 # 0.0 The function - Segway
 ########################################
@@ -77,10 +66,8 @@ from transcription_overlap import EPLabelCover_Segway
 
 '''
 Seway bed files are already sorted and filtered. Please see the QC_transcriptionComparison_03.py section 5
+output is saved in : annotationFolder + 'exp_promoter_labelCover_promLength%d.pkl' %(promLength)
 '''
-
-# I need to do it for the 21 remaining samples with the transcriptomic data
-dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
 
 # load the meta file 
 inputFileName = 'all235Annot_meta_corrected.pkl'
@@ -96,8 +83,17 @@ for accession in accessionList:
     annotation = allMeta[accession]
     count+=1
 
-    if ((('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
-        RNAFile = annotation['RNAseqFile'][0]
+    #if ((('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
+    if ('testBatch105' in annotation['folder']) and not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
+        #RNAFile = annotation['RNAseqFile'][0]
+
+        
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+        else:
+            RNAFile = annotation['RNAseqFile']
+        print(RNAFile)
+
         print(count)
         print(accession)
         print(RNAFile)
@@ -106,7 +102,7 @@ for accession in accessionList:
         print(annotationFolder)
 
         expAccession = RNAFile[-15:-4]
-        expFile = annotationFolder +  '/geneExp_dict_' + expAccession + '.pkl'
+        expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
         annFile = annotation['bedFile']
         mnemFile = annotationFolder + 'mnemonics_v04.txt'
         #geneList
@@ -118,6 +114,10 @@ for accession in accessionList:
 ########################################
 # 0.1 The function - chromhmm
 ########################################
+
+'''
+output is saved in annotationFolder + 'exp_promoter_labelCover_chmm.pkl'
+'''
 
 # sort the chromHMM file, and then the annotation file will be the sorted_ChromHMM_[chromFile]
 count = 0
@@ -172,14 +172,17 @@ book =  'EnhA1 EnhA2 EnhBiv EnhG1 EnhG2 EnhWk Het Quies ReprPC ReprPCWk TssA Tss
 chromLabels = book.split()
 
 count = 0
-for accession in accessionList[6:]:
+for accession in accessionList[135:]:
     annotation = allMeta[accession]
 
-
-    if (('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
+    #if (('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
+    if not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
         count+=1
         print(count)
-        RNAFile = annotation['RNAseqFile'][0]
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+        else:
+            RNAFile = annotation['RNAseqFile']
         print(RNAFile)
         print(accession)
 
@@ -189,7 +192,12 @@ for accession in accessionList[6:]:
         expAccession = RNAFile[-15:-4]
         expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
         chmmFileName = annotation['chromFile'].split('/')[-1]
-        annFile = annotationFolder + 'sorted_' + chmmFileName
+
+        if (('38batch' in annotation['folder']) or ('May11' in annotation['folder'])):
+            annFile = annotationFolder + 'sorted_' + chmmFileName
+        else:
+            annFile = annotationFolder + chmmFileName
+            
         #geneList
         #geneIDList =
         promLength = 3000
@@ -200,33 +208,52 @@ for accession in accessionList[6:]:
 
         EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneList, geneIDList, promLength)
 
-
-        
-# 3. The AUC curve for genes which were included
+########################################        
+# 1. The AUC curve for genes which were included
 ########################################
-# get the AUC for Segway runs
 
-inputFile = dataFolder + dataSubFolder + 'biosample_tissue_info.pkl'
+'''
+update all the plots 
+'''
+
+inputFileName = 'all235Annot_meta_corrected.pkl'
+#inputFileName = 'all235Annot_meta.pkl'
+inputFile = dataFolder +  inputFileName
 with open(inputFile, 'rb') as f:
-    tissue_info = pickle.load( f)
-
-plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/testBatch105/'
-
+    allMeta = pickle.load(f)
+    
+accessionList = list(allMeta.keys())
 
 aucs = {} # gene, promoter
-for annAccession in annAccessionList:
+count = 0
+for accession in accessionList:
+    annotation = allMeta[accession]
+    print(annotation)
+    print(count)
+    count +=1
     
-    if (annMeta[annAccession]['expressionFile'] != 'none'):
+    #if (annMeta[annAccession]['expressionFile'] != 'none'): # for samples with expression data
+    if not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
 
-        expFileName = annMeta[annAccession]['expressionFile']
-        expAccession = re.split('_|\.', expFileName)[2]
-        inputFile = dataFolder + dataSubFolder + annAccession + '/geneExp_dict_' + expAccession + '.pkl'
-        print(inputFile)
-        with open(inputFile, 'rb') as pickledFile:
-            expression = pickle.load(pickledFile)
+        print(accession)
+        annotationFolder = annotation['folder']
+        print(annotationFolder)
 
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+        else:
+            RNAFile = annotation['RNAseqFile']
+        print(RNAFile)
+
+        expAccession = RNAFile[-15:-4]
+        expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
+
+        with open(expFile, 'rb') as pickledFile:
+            expression = pickle.load(pickledFile) # load the expression file
+
+        # load the mnemonics
         label_term_mapping = {}
-        mnemonics_file = dataFolder + dataSubFolder + annAccession + '/' + 'mnemonics_v04.txt'
+        mnemonics_file = annotationFolder + 'mnemonics_v04.txt'
         with open(mnemonics_file, 'r') as mnemonics:
             for line in mnemonics:
                 print(line)
@@ -235,26 +262,34 @@ for annAccession in annAccessionList:
                 label_term_mapping[label] = term
 
         clusterCount = len(label_term_mapping)
-        
-        inputFile = dataFolder + dataSubFolder + annAccession + '/' + 'exp_promoter_labelCover.pkl'
+
+        # load the recorded table
+        inputFile = annotationFolder + 'exp_promoter_labelCover_promLength3000.pkl'
         with open(inputFile, 'rb') as f:
             transPromoMat = pickle.load(f)  # promoter, genes
 
-        labelExpMat = transPromoMat['genes']
+        labelExpMat = transPromoMat['genes'] # matrix of genes by labels. How much of the gene body was covered by the label
         sib = labelExpMat.sum(axis = 1)
-        filterGene = sib > 0
+        filterGene = sib > 0 # genes included in the annotation
 
-        expArray = np.asarray([expression[x] for x in geneIDList])
-        filterExp = expArray[filterGene,]
-        filterExpMat = labelExpMat[filterGene, :]
-        sumExp = filterExpMat.sum(axis = 1)
-        filterExpMat = filterExpMat/sumExp[:,None]
+        #c = 0
+        #for id in geneIDList:
+        #    if not(id in book):
+        #        c+=1
+
+        expArray = np.asarray([expression[x] for x in geneIDList]) # dict to array
+        filterExp = expArray[filterGene,] # getting the expression for genes included in the annotation 
+        filterExpMat = labelExpMat[filterGene, :] # getting the label coverage for the same group of genes
+        sumExp = filterExpMat.sum(axis = 1) 
+        filterExpMat = filterExpMat/sumExp[:,None] # normalizing the gene length by the label coverage
     
-        notExp = filterExp == 0
+        notExp = filterExp == 0 # selecting the genes with zero expression
 
         #fig = plt.figure(figsize =(17, 7))
         #ax = fig.add_subplot(111)
 
+        # AUC plot for each of the labels
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         fig, axs = plt.subplots(nrows = 4, ncols=4, figsize =(10,9))
 
         geneAUC = []
@@ -298,19 +333,18 @@ for annAccession in annAccessionList:
         
         plt.xticks(fontsize=10)
         plt.yticks(fontsize=10)
-        tissue = tissue_info[annAccession]
-        fig.suptitle('prediction for gene expression \n %s - %s' %(annAccession, tissue))
+        tissue =  '%s  %s  %s' %(annotation['tissueInfo'][0], annotation['tissueInfo'][1], annotation['tissueInfo'][2])
+        fig.suptitle('prediction for gene expression \n %s - %s' %(accession, tissue))
         fig.text(0.5, 0.04, 'zero expression', ha='center')
         fig.text(0.04, 0.5, 'expressed', va='center', rotation='vertical')
 
-        plotFolder_add = plotFolder + annAccession + '/'
-        figFile = plotFolder_add + 'geneAUC.pdf'
+        plotFolder_add = annotation['plotFolder']
+        figFile = plotFolder_add + 'geneAUC_v04.pdf'
         print(figFile)
         plt.savefig(figFile, bbox_inches='tight')
         plt.close('all')
 
         #plt.show()
-
 
         labelExpMat = transPromoMat['promoter']
         sib = labelExpMat.sum(axis = 1)
@@ -371,21 +405,21 @@ for annAccession in annAccessionList:
         
         plt.xticks(fontsize=10)
         plt.yticks(fontsize=10)
-        tissue = tissue_info[annAccession]
-        fig.suptitle('prediction for active promoter \n %s - %s' %(annAccession, tissue))
-        fig.text(0.5, 0.04, 'zero exprssion', ha='center')
-        fig.text(0.04, 0.5, 'expressed genes', va='center', rotation='vertical')
+        tissue =  '%s  %s  %s' %(annotation['tissueInfo'][0], annotation['tissueInfo'][1], annotation['tissueInfo'][2])
+        fig.suptitle('prediction for gene expression \n %s - %s' %(accession, tissue))
+        fig.text(0.5, 0.04, 'zero expression', ha='center')
+        fig.text(0.04, 0.5, 'expressed', va='center', rotation='vertical')
 
-        plotFolder_add = plotFolder + annAccession + '/'
-        figFile = plotFolder_add + 'promoterAUC.pdf'
+        plotFolder_add = annotation['plotFolder']
+        figFile = plotFolder_add + 'promoterAUC_v04_3000bp.pdf'
         print(figFile)
         plt.savefig(figFile, bbox_inches='tight')
         plt.close('all')
         #plt.show()
 
-        aucs[annAccession] = (geneAUC, promoterAUC)
+        aucs[accession] = (geneAUC, promoterAUC)
         
-outputFile = dataFolder + dataSubFolder + 'geneAndPromoterAUCs.pkl'
+outputFile = dataFolder + 'geneAndPromoterAUCs_3000_segway_v04.pkl'
 with open(outputFile, 'wb') as f:
     pickle.dump(aucs, f)
 
@@ -395,24 +429,31 @@ with open(outputFile, 'wb') as f:
 
 aucs = {} # gene, promoter
 clusterCount = 18
-for annAccession in annAccessionList:
+for accession in accessionList:
+    annotation = allMeta[accession]
     
-    if (annMeta[annAccession]['expressionFile'] != 'none'):
+    #if (annMeta[annAccession]['expressionFile'] != 'none'): # for samples with expression data
+    if not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
 
-        expFileName = annMeta[annAccession]['expressionFile']
-        expAccession = re.split('_|\.', expFileName)[2]
-        inputFile = dataFolder + dataSubFolder + annAccession + '/geneExp_dict_' + expAccession + '.pkl'
-        print(inputFile)
-        with open(inputFile, 'rb') as pickledFile:
-            expression = pickle.load(pickledFile)
+        print(accession)
+        annotationFolder = annotation['folder']
+        print(annotationFolder)
 
-        inputFile = dataFolder + dataSubFolder + annAccession + '/' + 'exp_promoter_labelCover_chmm.pkl'
-        try:
-            with open(inputFile, 'rb') as f:
-                transPromoMat = pickle.load(f)  # promoter, genes
-        except FileNotFoundError:
-            print('no file')
-        
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+        else:
+            RNAFile = annotation['RNAseqFile']
+        print(RNAFile)
+
+        expAccession = RNAFile[-15:-4]
+        expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
+
+        with open(expFile, 'rb') as pickledFile:
+            expression = pickle.load(pickledFile) # load the expression file
+
+        inputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength3000.pkl'
+        with open(inputFile, 'rb') as f:
+            transPromoMat = pickle.load(f)  # promoter, genes
 
         labelExpMat = transPromoMat['genes']
         sib = labelExpMat.sum(axis = 1)
@@ -472,13 +513,13 @@ for annAccession in annAccessionList:
         
         plt.xticks(fontsize=10)
         plt.yticks(fontsize=10)
-        tissue = tissue_info[annAccession]
-        fig.suptitle('prediction for gene expression \n %s - %s' %(annAccession, tissue))
+        tissue =  '%s  %s  %s' %(annotation['tissueInfo'][0], annotation['tissueInfo'][1], annotation['tissueInfo'][2])
+        fig.suptitle('prediction for gene expression \n %s - %s' %(accession, tissue))
         fig.text(0.5, 0.04, 'zero expression', ha='center')
         fig.text(0.04, 0.5, 'expressed', va='center', rotation='vertical')
 
-        plotFolder_add = plotFolder + annAccession + '/'
-        figFile = plotFolder_add + 'geneAUC_chrom.pdf'
+        plotFolder_add = annotation['plotFolder']
+        figFile = plotFolder_add + 'geneAUC_chrom_v04.pdf'
         print(figFile)
         plt.savefig(figFile, bbox_inches='tight')
         plt.close('all')
@@ -544,21 +585,21 @@ for annAccession in annAccessionList:
         
         plt.xticks(fontsize=10)
         plt.yticks(fontsize=10)
-        tissue = tissue_info[annAccession]
-        fig.suptitle('prediction for active promoter \n %s - %s' %(annAccession, tissue))
-        fig.text(0.5, 0.04, 'zero exprssion', ha='center')
-        fig.text(0.04, 0.5, 'expressed genes', va='center', rotation='vertical')
+        tissue =  '%s  %s  %s' %(annotation['tissueInfo'][0], annotation['tissueInfo'][1], annotation['tissueInfo'][2])
+        fig.suptitle('prediction for gene expression \n %s - %s' %(accession, tissue))
+        fig.text(0.5, 0.04, 'zero expression', ha='center')
+        fig.text(0.04, 0.5, 'expressed', va='center', rotation='vertical')
 
-        plotFolder_add = plotFolder + annAccession + '/'
-        figFile = plotFolder_add + 'promoterAUC_chrom.pdf'
+        plotFolder_add = annotation['plotFolder']
+        figFile = plotFolder_add + 'promoterAUC_chrom_v04_3000bp.pdf'
         print(figFile)
         plt.savefig(figFile, bbox_inches='tight')
         plt.close('all')
         #plt.show()
 
-        aucs[annAccession] = (geneAUC, promoterAUC)
-        
-outputFile = dataFolder + dataSubFolder + 'geneAndPromoterAUCs_chrom.pkl'
+        aucs[accession] = (geneAUC, promoterAUC)
+
+outputFile = dataFolder + 'geneAndPromoterAUCs_3000_chrom.pkl'
 with open(outputFile, 'wb') as f:
     pickle.dump(aucs, f)
 
@@ -567,7 +608,7 @@ with open(outputFile, 'wb') as f:
 ########################################
 
 # get the highest AUC for each of them, for each of them document which label had the highest AUC
-inputFile = dataFolder + dataSubFolder + 'geneAndPromoterAUCs_chrom.pkl'
+inputFile = dataFolder + 'geneAndPromoterAUCs_chrom.pkl'
 
 
 # get the label and the max value for each of the segway promoter and genes
