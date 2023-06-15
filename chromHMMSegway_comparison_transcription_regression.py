@@ -17,6 +17,15 @@
 '''
 Segway needs summing up of the states. Chromhmm has already the same count of states
 '''
+from numpy import random
+import pickle
+import re
+import numpy as np
+import pandas as pd
+import subprocess as sp
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LogisticRegression
@@ -25,6 +34,23 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+# load the meta file 
+inputFileName = 'all235Annot_meta_corrected.pkl'
+#inputFileName = 'all235Annot_meta.pkl'
+inputFile = dataFolder +  inputFileName
+with open(inputFile, 'rb') as f:
+    allMeta = pickle.load(f)
+
+# GTF data structure
+fileName = dataFolder + '/geneLists.pkl'
+with open(fileName, 'rb') as pickleFile:
+    geneListsAndIDs = pickle.load(pickleFile)
+    
+geneList = geneListsAndIDs[0]
+geneIDList = geneListsAndIDs[1]
+del geneListsAndIDs
+
 
 # Segway states:
 segwayStates = ['Enhancer', 'EnhancerLow', 'Promoter', 'PromoterFlanking', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
@@ -243,7 +269,8 @@ with open(file, 'rb') as f:
 file = dataFolder + 'Segway_logisticRegression_model_v04.pkl'
 with open(file, 'wb') as f:
     pickle.dump(regressionModel, f)
-
+    
+file = dataFolder + 'Segway_logisticRegression_model_v04.pkl'
 with open(file, 'rb') as f:
     regModel = pickle.load(f)
 
@@ -301,7 +328,6 @@ for accession in accessionList:
         with open(inputFile, 'rb') as f:
             transPromoMat = pickle.load(f)  # promoter, genes
 
-        # TODO: add the KEY
         for key in modeKeyList:
             regionMode = key[0]
             expMode = key[1]
@@ -442,6 +468,11 @@ plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/'
 # Segway: I am goint to do 4 panel plots: promoter, gene, balanced, unbalanced. Each panel will have the 5 box plots. There are list of 20 keys.
 switchLists = [['genes','promoter'], [1,2,3,4,5], ['balanced', 'unbalanced']]
 
+file = dataFolder + 'Segway_logisticRegression_output_v04.pkl'
+file = dataFolder + 'Chrom_logisticRegression_output_v04.pkl'
+with open(file, 'rb') as f:
+    regOutput = pickle.load(f)
+
 modeKeyList = []
 aucMats = []
 titles = []
@@ -460,14 +491,12 @@ for i in range(2):
         aucMats.append(aucMat)
         titles.append(myKey)
         
-fig, axs = plt.subplots(1, 3, figsize =(12, 6), gridspec_kw={'width_ratios':[1,1,1.2]})
-
 fig, axs = plt.subplots(1,4, figsize=(14,4))
 bplist = []
 for i in range(4):
     print(i)
     bp=axs[i].boxplot(aucMats[i], patch_artist=True)
-    axs[i].set_ylim([.6,.95])
+    axs[i].set_ylim([.5,.95])
     title = titles[i][0] + ' ' + titles[i][2]
     axs[i].set_title(title)
     bplist.append(bp)
@@ -493,10 +522,374 @@ axs[3].legend(handles=legend_elements)
 #leg.legendHandles[0].set_color('pink')
 #leg.legendHandles[1].set_color('lightblue')
 
-plt.ylim([.50,.95])
 plt.show()
 figFile = plotFolder + 'Segway_logisticRegression_self.pdf'
 figFile = plotFolder + 'Chrom_logisticRegression_self.pdf'
+print(figFile)
+plt.savefig(figFile, bbox_inches='tight')
+plt.close('all')
+
+########################################
+# 5.4 mishmash of models and samples
+########################################
+from numpy import random
+# for each key, do a hundred paring of model/sample
+    
+file = dataFolder + 'Segway_logisticRegression_model_v04.pkl'
+with open(file, 'rb') as f:
+    regModel = pickle.load(f)
+
+modelKeyList = list(regModel.keys())
+
+# Segway
+keyAucs = {}
+for key in modelKeyList: #for each of the 20 keys:
+    print('##############################')
+    print(key)
+    regionMode = key[0]
+    expMode = key[1]
+    modelList = regModel[key]
+    aucList = []
+    for i in range(100):# selection of 100 models/sample pairs:
+        print(i)
+        rand1 = random.randint(84) # random model selection
+        print(rand1)
+        modelAccession = list(aucs.keys())[rand1]
+        lrModel = modelList[rand1][1]
+        
+        rand2 = random.randint(84) # random sample selection
+        print(rand2)
+        accession = list(aucs.keys())[rand2]
+
+        annotation = allMeta[accession]
+        annotationFolder = annotation['folder']
+
+        # 0.1 get the mnemonics
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+        label_term_mapping = {}
+        mnemonics_file = annotationFolder + 'mnemonics_v04.txt'
+        with open(mnemonics_file, 'r') as mnemonics:
+            for line in mnemonics:
+                #print(line)
+                label = line.strip().split()[0]
+                term = line.strip().split()[1]
+                label_term_mapping[label] = term
+
+        # 0.2 get the expression data
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+        else:
+            RNAFile = annotation['RNAseqFile']
+        print(RNAFile)
+
+        expAccession = RNAFile[-15:-4]
+        expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
+
+        with open(expFile, 'rb') as pickledFile:
+            expression = pickle.load(pickledFile) # load the expression file
+
+        # 0.3 Get the promoter/gene body coverage of the labels
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+        inputFile = annotationFolder + 'exp_promoter_labelCover_promLength3000.pkl'
+        with open(inputFile, 'rb') as f:
+            transPromoMat = pickle.load(f)  # promoter, genes
+
+        # 1. For Genes OR promoters
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        if regionMode == 'genes':
+            labelExpMat = transPromoMat['genes']
+        else:
+            labelExpMat = transPromoMat['promoter']
+        
+        sib = labelExpMat.sum(axis = 1)
+        filterGene = sib > 0 # genes that are present in the annotation
+
+        expArray = np.asarray([expression[x] for x in geneIDList]) # genes in the transcriptomic data that are in the gene map file
+        filterExp = expArray[filterGene,] # from these, we filter for those that have annotation
+
+        # 2. The expression filter switch mechanism, it has 5 switches 
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        # the outcome of each switch is the "notExp" and "filterExpMat"
+        # the outcome of this section is "notExp", and the filtered (based on switches) and processed "expMat"
+        
+        # >>>>> 2.1 Switch 1
+        if expMode == 1: # default
+            notExp = filterExp == 0
+                
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            
+        # >>>>> 2.2 Switch 2
+        expValues = filterExp[filterExp > 0]
+        if expMode == 2: # 10% low expressed filtered
+            # get the 10% quantile of the filterExp
+            q10 = np.quantile(expValues, .1)
+            filterForLowExp = ~(((filterExp > 0).astype(int) + (filterExp < q10).astype(int)) == 2)
+            filFilExp = filterExp[filterForLowExp,] ## >>>>> removing those with low exp
+            filterExp = filFilExp
+            
+            notExp = filterExp == 0
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
+            filterExpMat = filFilExpMat
+
+        # >>>>> 2.3 Switch 3
+        if expMode == 3: # 15% low expressed filtered
+            q15 = np.quantile(expValues, .15)
+            filterForLowExp = ~(((filterExp > 0).astype(int) + (filterExp < q15).astype(int)) == 2)
+            filFilExp = filterExp[filterForLowExp,] ## >>>>> removing those with low exp
+            filterExp = filFilExp
+            
+            notExp = filterExp == 0
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
+            filterExpMat = filFilExpMat
+
+        # >>>>> 2.4 Switch 4
+        if expMode == 4: # 10% low expressed considered zero expressed
+            q10 = np.quantile(expValues, .1)
+            notExp = filterExp < q10
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+
+        # >>>>> 2.5 Switch 5
+        if expMode == 5: # 15% low expressed considered zero expressed
+            q15 = np.quantile(expValues, .15)
+            notExp = filterExp < q15
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+
+        sumExp = filterExpMat.sum(axis = 1)
+        filterExpMat = filterExpMat/sumExp[:,None] # normalizing the coverage to get ratio of the coverage by the labe
+        
+        expMat = np.zeros((filterExpMat.shape[0], segwayStateCount))
+
+        # get the feature mat
+        for i,label in enumerate(label_term_mapping):
+            index = segwayStates.index(label_term_mapping[label])
+            expMat[:, index] += filterExpMat[:, i]
+
+        y_pred = lrModel.predict(expMat)
+        target_names = ['expressed', 'not expressed']
+        #print(classification_report(y_test, y_pred, target_names=target_names)) # an str
+        report = (classification_report(notExp, y_pred, target_names=target_names))
+
+        auc = accuracy_score(notExp, y_pred)
+        aucList.append(auc)
+        
+    keyAucs[key] = aucList
+
+file = dataFolder + 'Segway_logisticRegression_auc_v04_nonSelf.pkl'
+with open(file, 'wb') as f:
+    pickle.dump(keyAucs, f)
+
+##############################
+# Chromhmm
+    
+file = dataFolder + 'Chrom_logisticRegression_model_v04.pkl'
+with open(file, 'rb') as f:
+    regModel = pickle.load(f)
+
+modelKeyList = list(regModel.keys())
+
+keyAucs = {}
+for key in modelKeyList: #for each of the 20 keys:
+    print('##############################')
+    print(key)
+    regionMode = key[0]
+    expMode = key[1]
+    modelList = regModel[key]
+    aucList = []
+    for i in range(100):# selection of 100 models:
+        print(i)
+        rand1 = random.randint(84)
+        #print(rand1)
+        modelAccession = list(aucs.keys())[rand1]
+        lrModel = modelList[rand1][1]
+        
+        rand2 = random.randint(84)
+        #print(rand2)
+        accession = list(aucs.keys())[rand2]
+
+        annotation = allMeta[accession]
+        annotationFolder = annotation['folder']
+
+        # 0.2 get the expression data
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+        else:
+            RNAFile = annotation['RNAseqFile']
+        #print(RNAFile)
+
+        expAccession = RNAFile[-15:-4]
+        expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
+
+        with open(expFile, 'rb') as pickledFile:
+            expression = pickle.load(pickledFile) # load the expression file
+
+        # 0.3 Get the promoter/gene body coverage of the labels
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+        inputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength3000.pkl'
+        with open(inputFile, 'rb') as f:
+            transPromoMat = pickle.load(f)  # promoter, genes
+
+        # 1. For Genes OR promoters
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        if regionMode == 'genes':
+            labelExpMat = transPromoMat['genes']
+        else:
+            labelExpMat = transPromoMat['promoter']
+        
+        sib = labelExpMat.sum(axis = 1)
+        filterGene = sib > 0 # genes that are present in the annotation
+
+        expArray = np.asarray([expression[x] for x in geneIDList]) # genes in the transcriptomic data that are in the gene map file
+        filterExp = expArray[filterGene,] # from these, we filter for those that have annotation
+
+        # 2. The expression filter switch mechanism, it has 5 switches 
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        # the outcome of each switch is the "notExp" and "filterExpMat"
+        # the outcome of this section is "notExp", and the filtered (based on switches) and processed "expMat"
+        
+        # >>>>> 2.1 Switch 1
+        if expMode == 1: # default
+            notExp = filterExp == 0
+                
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+
+        # >>>>> 2.2 Switch 2
+        expValues = filterExp[filterExp > 0]
+        if expMode == 2: # 10% low expressed filtered
+            # get the 10% quantile of the filterExp
+            q10 = np.quantile(expValues, .1)
+            filterForLowExp = ~(((filterExp > 0).astype(int) + (filterExp < q10).astype(int)) == 2)
+            filFilExp = filterExp[filterForLowExp,] ## >>>>> removing those with low exp
+            filterExp = filFilExp
+            
+            notExp = filterExp == 0
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
+            filterExpMat = filFilExpMat
+
+        # >>>>> 2.3 Switch 3
+        if expMode == 3: # 15% low expressed filtered
+            q15 = np.quantile(expValues, .15)
+            filterForLowExp = ~(((filterExp > 0).astype(int) + (filterExp < q15).astype(int)) == 2)
+            filFilExp = filterExp[filterForLowExp,] ## >>>>> removing those with low exp
+            filterExp = filFilExp
+            
+            notExp = filterExp == 0
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
+            filterExpMat = filFilExpMat
+
+        # >>>>> 2.4 Switch 4
+        if expMode == 4: # 10% low expressed considered zero expressed
+            q10 = np.quantile(expValues, .1)
+            notExp = filterExp < q10
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+
+        # >>>>> 2.5 Switch 5
+        if expMode == 5: # 15% low expressed considered zero expressed
+            q15 = np.quantile(expValues, .15)
+            notExp = filterExp < q15
+            
+            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+
+        sumExp = filterExpMat.sum(axis = 1)
+        filterExpMat = filterExpMat/sumExp[:,None] # normalizing the coverage to get ratio of the coverage by the labe
+        
+        expMat = filterExpMat
+
+        y_pred = lrModel.predict(expMat)
+        target_names = ['expressed', 'not expressed']
+        #print(classification_report(y_test, y_pred, target_names=target_names)) # an str
+        report = (classification_report(notExp, y_pred, target_names=target_names))
+
+        auc = accuracy_score(notExp, y_pred)
+        aucList.append(auc)
+        
+    keyAucs[key] = aucList
+
+file = dataFolder + 'Chrom_logisticRegression_auc_v04_nonSelf.pkl'
+with open(file, 'wb') as f:
+    pickle.dump(keyAucs, f)
+
+########################################
+# 5.5 plot for the 5.4
+########################################
+
+# The boxplots of the AUCs like in 5.2
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/'
+# Segway: I am goint to do 4 panel plots: promoter, gene, balanced, unbalanced. Each panel will have the 5 box plots. There are list of 20 keys.
+switchLists = [['genes','promoter'], [1,2,3,4,5], ['balanced', 'unbalanced']]
+
+file = dataFolder + 'Segway_logisticRegression_auc_v04_nonSelf.pkl'
+file = dataFolder + 'Chrom_logisticRegression_auc_v04_nonSelf.pkl'
+with open(file, 'rb') as f:
+    keyAucs = pickle.load(f)
+
+modeKeyList = []
+aucMats = []
+titles = []
+for i in range(2):
+    regionMode = switchLists[0][i]
+    for k in range(2):
+        regMode = switchLists[2][k]
+        aucMat = np.zeros((100, 5))
+        for j in range(5):
+            expMode = switchLists[1][j]
+            myKey = (regionMode, expMode, regMode)
+            aucMat[:,j] = keyAucs[myKey]
+            print(myKey)
+
+        aucMats.append(aucMat)
+        titles.append(myKey)
+        
+fig, axs = plt.subplots(1,4, figsize=(14,4))
+bplist = []
+for i in range(4):
+    print(i)
+    bp=axs[i].boxplot(aucMats[i], patch_artist=True)
+    axs[i].set_ylim([.5,.95])
+    title = titles[i][0] + ' ' + titles[i][2]
+    axs[i].set_title(title)
+    bplist.append(bp)
+    
+colors = ['pink', 'lightblue', 'lightgreen', 'goldenrod', 'royalblue']
+for bplot in bplist:
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+
+legends = ['default: exp == 0, exp > 0', 'exp == 0, exp > 10 centile exp', 'exp == 0, exp > 15 centile exp',
+           'exp =< 10 centile exp, exp > 10 centile exp', 'exp <= 15 centile exp, exp > 15 centile exp']
+
+from matplotlib.patches import Patch
+
+legend_elements = [Patch(facecolor='pink', label = legends[0]),
+                   Patch(facecolor='lightblue', label = legends[1]),
+                   Patch(facecolor='lightgreen', label = legends[2]),
+                   Patch(facecolor='goldenrod', label = legends[3]),
+                   Patch(facecolor='royalblue', label = legends[4])]
+
+axs[3].legend(handles=legend_elements)
+#leg = axs[3].get_legend()
+#leg.legendHandles[0].set_color('pink')
+#leg.legendHandles[1].set_color('lightblue')
+
+plt.show()
+figFile = plotFolder + 'Segway_logisticRegression_nonSelf.pdf'
+figFile = plotFolder + 'Chrom_logisticRegression_nonSelf.pdf'
 print(figFile)
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
