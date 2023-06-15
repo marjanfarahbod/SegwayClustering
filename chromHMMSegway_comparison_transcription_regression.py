@@ -4,9 +4,10 @@
 # 5.2 ChromHMM logistic regression (individual train and test)
 # 5.3 Box plots for the LogR TODO
 # 5.4 mishmash of models and samples, plot TODO
-# 5.5 LinR Segway TODO
-# 5.6 LinR Chrom TODO
-# 5.7 boxplots for the LinR
+# 5.5 plot for the 5.4
+# 5.6 LinR Segway TODO
+# 5.7 LinR Chrom TODO
+# 5.8 boxplots for the LinR
 
 
 ########################################
@@ -21,9 +22,13 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from sklearn.metrics import classification_report
-from sklearn.metrics import accuracy_score 
+from sklearn.metrics import accuracy_score
 
-segwayStates
+dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
+
+# Segway states:
+segwayStates = ['Enhancer', 'EnhancerLow', 'Promoter', 'PromoterFlanking', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
+print(len(segwayStates))
 segwayStateCount = len(segwayStates)
 
 inputFile = dataFolder + 'geneAndPromoterAUCs_3000_segway_v04.pkl'
@@ -431,15 +436,70 @@ with open(file, 'rb') as f:
 
 
 ########################################
-# 5.3 Box plots for the LogR 
+# 5.3 Box plots for the LogR  
 ########################################
-
+plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/'
 # Segway: I am goint to do 4 panel plots: promoter, gene, balanced, unbalanced. Each panel will have the 5 box plots. There are list of 20 keys.
+switchLists = [['genes','promoter'], [1,2,3,4,5], ['balanced', 'unbalanced']]
 
+modeKeyList = []
+aucMats = []
+titles = []
+for i in range(2):
+    regionMode = switchLists[0][i]
+    for k in range(2):
+        regMode = switchLists[2][k]
+        aucMat = np.zeros((85, 5))
+        for j in range(5):
+            expMode = switchLists[1][j]
+            myKey = (regionMode, expMode, regMode)
+            output = regOutput[myKey]
+            aucMat[:,j] = [kado[1] for kado in output]
+            print(myKey)
 
-
-
+        aucMats.append(aucMat)
+        titles.append(myKey)
         
+fig, axs = plt.subplots(1, 3, figsize =(12, 6), gridspec_kw={'width_ratios':[1,1,1.2]})
+
+fig, axs = plt.subplots(1,4, figsize=(14,4))
+bplist = []
+for i in range(4):
+    print(i)
+    bp=axs[i].boxplot(aucMats[i], patch_artist=True)
+    axs[i].set_ylim([.6,.95])
+    title = titles[i][0] + ' ' + titles[i][2]
+    axs[i].set_title(title)
+    bplist.append(bp)
+    
+colors = ['pink', 'lightblue', 'lightgreen', 'goldenrod', 'royalblue']
+for bplot in bplist:
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+
+legends = ['default: exp == 0, exp > 0', 'exp == 0, exp > 10 centile exp', 'exp == 0, exp > 15 centile exp',
+           'exp =< 10 centile exp, exp > 10 centile exp', 'exp <= 15 centile exp, exp > 15 centile exp']
+
+from matplotlib.patches import Patch
+
+legend_elements = [Patch(facecolor='pink', label = legends[0]),
+                   Patch(facecolor='lightblue', label = legends[1]),
+                   Patch(facecolor='lightgreen', label = legends[2]),
+                   Patch(facecolor='goldenrod', label = legends[3]),
+                   Patch(facecolor='royalblue', label = legends[4])]
+
+axs[3].legend(handles=legend_elements)
+#leg = axs[3].get_legend()
+#leg.legendHandles[0].set_color('pink')
+#leg.legendHandles[1].set_color('lightblue')
+
+plt.ylim([.50,.95])
+plt.show()
+figFile = plotFolder + 'Segway_logisticRegression_self.pdf'
+figFile = plotFolder + 'Chrom_logisticRegression_self.pdf'
+print(figFile)
+plt.savefig(figFile, bbox_inches='tight')
+plt.close('all')
 
 #### DRAFT
 ########################################
