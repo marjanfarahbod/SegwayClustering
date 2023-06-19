@@ -16,7 +16,7 @@ dataFolder = '/home/mfarahbo/scratch/segway112Samples/'
 projectDataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 
 # load the accession file - the python2 compatible version
-accessionFile = dataFolder + 'accessionList.txt'
+accessionFile = dataFolder + 'hg_accessionList.txt'
 file = open(accessionFile, 'r')
 lines = file.readlines()
 segwayAccession = lines[parameterIndex].strip()

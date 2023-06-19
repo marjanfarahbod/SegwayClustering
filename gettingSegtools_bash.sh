@@ -3,8 +3,8 @@
 #SBATCH --account=rrg-maxwl
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=30G
-#SBATCH --time=0-30:00
-#SBATCH --output=%j.out
+#SBATCH --time=0-23:00
+#SBATCH --output=%j_segtoolsAllButGMTK_1.out
 #SBATCH --array=1
 
 source /home/mfarahbo/scratch/segtools-env2/bin/activate

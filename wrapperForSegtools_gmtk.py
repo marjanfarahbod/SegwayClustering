@@ -14,14 +14,22 @@ print(parameterIndex)
 dataFolder = '/home/mfarahbo/scratch/segway112Samples/'
 projectDataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 
-# load the address file
-### TODO: this needs to change to get compatible to python 2. 
-inputFile = dataFolder + 'accessionList.pkl'
-with open(inputFile, 'rb') as f:
-    accessionList = pickle.load(f)
 
-# Get the Segway accession with the parameter index from the list
-segwayAccession = accessionList[int(parameterIndex)]
+# load the accession file - the python2 compatible version
+accessionFile = dataFolder + 'hg_accessionList.txt'
+file = open(accessionFile, 'r')
+lines = file.readlines()
+segwayAccession = lines[parameterIndex].strip()
+
+## load the accession file - the python3 version using pickle
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#inputFile = dataFolder + 'accessionList.pkl'
+#with open(inputFile, 'rb') as f:
+#    accessionList = pickle.load(f)
+
+## Get the Segway accession with the parameter index from the list
+#segwayAccession = accessionList[int(parameterIndex)]
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # sampleFolder
 segdir = projectDataFolder + segwayAccession + '/'
