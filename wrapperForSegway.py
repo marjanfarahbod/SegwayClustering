@@ -18,7 +18,7 @@ dataFolder = '/home/mfarahbo/scratch/segway112Samples/'
 projectDataFolder = '/home/mfarahbo/projects/def-maxwl/mfarahbo/segway112Samples/'
 
 # load the address file
-inputFile = dataFolder + 'accessionList.pkl'
+inputFile = dataFolder + 'hg_accessionList.pkl'
 with open(inputFile, 'rb') as f:
     accessionList = pickle.load(f)
 
