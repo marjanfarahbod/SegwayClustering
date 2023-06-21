@@ -1,10 +1,10 @@
 # here to compare the annotations for two files.
-
+#
 # TODO: write the annotation summary function for chmm - done
 # TODO: write the annotation overlap - done
 # TODO: in QC_transcriptionComparison_util.py, fix the annotation_generalInfo_clusters() for calling, if needed, the main one is currently in the QC_transcriptionComparison_02.py 
 # TODO: do the same for ccre
-
+#
 ########################################
 # 0. Initials 
 ########################################
@@ -35,7 +35,10 @@ geneIDList = geneListsAndIDs[1]
 del geneListsAndIDs
 
 segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+
+
 '''
+ChromHMM labels:
 Active TSS
 Flanking TSS
 Flanking TSS upstream
@@ -56,10 +59,8 @@ Weak Repressed PolyComb
 Quiescent/Low
 '''
 
-# TODO: fix it
-
 # TODO load annMeta from the folder
-book =  'EnhA1 EnhA2 EnhBiv EnhG1 EnhG2 EnhWk Het Quies ReprPC ReprPCWk TssA TssBiv TssFlnk TssFlnkD TssFlnkU Tx TxWk ZNF/Rpts'
+book = 'EnhA1 EnhA2 EnhBiv EnhG1 EnhG2 EnhWk Het Quies ReprPC ReprPCWk TssA TssBiv TssFlnk TssFlnkD TssFlnkU Tx TxWk ZNF/Rpts'
 chromLabels = book.split()
 
 chmmFile = dataFolder + dataSubFolder + 'ENCSR121RCG/ChromHMM_SegwayDonor_age44_ENCFF261PTV.bed'

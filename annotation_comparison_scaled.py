@@ -4,7 +4,7 @@
 # ########################################
 # 0. Initials
 # 1. Unzip and sort the chmm files for each sample
-# 2. Get the summary info for each chrom filebut we dont need it now)
+# 2. Get the summary info for each chrom file (we dont need it now)
 # 3. do the comparison, save the matrix and plot
 # 4. get the plots - the two heatmaps for now
 # 5. get the plots - with the updated classifier labels 
@@ -186,7 +186,6 @@ with open(inputFile, 'rb') as f:
     chmmFile_dict = pickle.load(f)
 
 from QC_transcriptionComparison_util import *
-# TODO: fix a problem: when calling the function annotation_generalInfo_classes_chmm from QC_ranscriptionComparison_util, it gives an error that name 'pickle' is not defined. I don't know how to fix this. I tried importing the pickle in the util file or even within the function, it doesn't work. for now, I just run the function first (instead of calling it from here and expecting it to read it from the file, I just compile it once and then run the following code. It works, but I need to fix the problem) - I BELIEVE it should be enough to import it in the QC_transcriptionComparison_util, and then import this. 
 
 sampleFolder_list = list(chmmFile_dict.keys())
 
@@ -269,6 +268,9 @@ for sampleFolder in sampleFolder_list: # for each sample
     print(segwayFile)
     print(chmmFile)
 
+    # unzip the chmm file
+    # os.system('gunzip %s' %(chmmFile + '.gz'))
+
     segwayAccession = re.search('ENCFF.*_', segwayFile)[0][:-1]
     chmmAccession = re.search('ENCFF.*\.', chmmFile)[0][:-1]
 
@@ -303,7 +305,7 @@ for sampleFolder in sampleFolder_list: # for each sample
             current_chr = schr
             overlap = min(send, cend) - max(sstart, cstart)
             if overlap > 0: # if there is an overlap
-                sindex = segway_cluster_list.index(sfields[3])
+                sindex = int(sfields[3].split('_')[0])
                 cindex = chmm_class_list.index(cfields[3])
                 overlap_mat[sindex][cindex] += overlap # we counted the overlap
 
@@ -746,7 +748,6 @@ for ann in annInfo_list:
     plt.tight_layout()
     #plt.title('ratio - observed vs expected')
     #plt.show()
-
     # h2: the segway ratio covered
     h2 = pd.DataFrame(overlap_mat_rowNorm, index = segwayAxis_list, columns = chmmAxis_list)
     h2 = h2.reindex(segwayAxis_list_reordered)
@@ -876,6 +877,213 @@ for ann in annInfo_list:
 # TODO : first I do segway label correction and then I do the overlap thing. For the Segway label correction I also do it with the ccre 
 ######
 # for each sample folder, fetch the chmm, fetch the segway, fix the chmm
+
+
+# Note: for segway, I need to sort the clusters for each file since the cluster id (the number) is assigned randomly and clusters are identified by this number but they also have a class label. But for chromhmm that is not needed
+
+# 6. getting overlap for others 
+########################################
+# load the list of chromhmm classes
+book =  'EnhA1 EnhA2 EnhBiv EnhG1 EnhG2 EnhWk Het Quies ReprPC ReprPCWk TssA TssBiv TssFlnk TssFlnkD TssFlnkU Tx TxWk ZNF/Rpts'
+chmm_class_list = book.split()
+
+inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
+with open(inputFile, 'rb') as f:
+    annMeta = pickle.load(f)
+
+annAccessionList = list(annMeta.keys())
+
+count = 0
+for annAccession in annAccessionList[1:]: # for each sample
+
+    print(count)
+    count += 1
+
+    '''
+    1. get the segway stuff: cluster list, annotation file name
+
+     '''
+    
+    # get the name of the segway bed file from annMeta
+    originalBedFile = annMeta[annAccession]['bedFile']
+    originalBed_accession = originalBedFile.split('.')[0]
+
+    segway_ann_sum_file = dataFolder + dataSubFolder + annAccession + '/' + originalBed_accession + '_annotationSummary.pkl'
+
+    # get the segway annotation summary file
+    with open(segway_ann_sum_file, 'rb') as pickledFile:
+        segway_anns = pickle.load(pickledFile)
+
+    segway_cluster_list = list(segway_anns['clusters'].keys())
+
+    # get the segway annotation file
+    segwayFile = dataFolder + dataSubFolder + annAccession + '/' + originalBed_accession + '_filteredSorted.bed'
+
+    os.system('gunzip %s.gz' %(segwayFile))
+
+    '''
+    2. the chmm file
+
+    '''
+    chmmCount = 0
+    for nonSelfAccession in annAccessionList:
+        if nonSelfAccession == annAccession:
+            continue
+
+        if nonSelfAccession == 'ENCSR313QGL' or nonSelfAccession == 'ENCSR592IOP' or nonSelfAccession == 'ENCSR721USS' or nonSelfAccession == 'ENCSR273LUT' or nonSelfAccession == 'ENCSR699DMW':
+            continue
+    
+        chmmFile = chmmFile_dict[nonSelfAccession]
+
+        if chmmFile == 'none':
+            continue
+
+        print(chmmCount)
+        chmmCount+=1
+
+        #if chmmFile.endswith('.gz'):
+        #    chmmFile = chmmFile[:-3]
+
+        '''
+        3. we have both chmmFile and segwayFile, so we can move on to comparison
+
+        '''
+    
+        print(segwayFile)
+        print(chmmFile)
+
+        os.system('gunzip %s.gz' %(chmmFile))
+
+        # unzip the chmm file
+        # os.system('gunzip %s' %(chmmFile + '.gz'))
+
+        segwayAccession = re.search('ENCFF.*_', segwayFile)[0][:-1]
+        chmmAccession = re.search('ENCFF.*\.', chmmFile)[0][:-1]
+
+        print(segwayAccession)
+        print(chmmAccession)
+
+        segway_cluster_count = len(segway_cluster_list)
+        chmm_class_count = len(chmm_class_list)
+
+        overlap_mat = np.zeros((segway_cluster_count, chmm_class_count))
+
+        segwayLineInd = 1
+        segLine = linecache.getline(segwayFile, segwayLineInd)
+        sfields = segLine.split()
+        schr = sfields[0]
+        sstart = int(sfields[1])
+        send = int(sfields[2])
+
+        chmmLineInd = 1
+        chmmLine = linecache.getline(chmmFile, chmmLineInd)
+        cfields = chmmLine.split()
+        cchr = cfields[0]
+        cstart = int(cfields[1])
+        cend = int(cfields[2])
+
+        # while not at the end 
+        while cchr != 'chr22' and schr != 'chr22': # while not at the end
+
+            #print(chmmLineInd)
+            #print(segwayLineInd)
+            if cchr == schr: # if we are in the same chromosome
+                current_chr = schr
+                overlap = min(send, cend) - max(sstart, cstart)
+                if overlap > 0: # if there is an overlap
+                    sindex = int(sfields[3].split('_')[0])
+                    cindex = chmm_class_list.index(cfields[3])
+                    overlap_mat[sindex][cindex] += overlap # we counted the overlap
+
+                    # the one with smaller end should move forward, or both if equal ends
+                    if send < cend:
+                        segwayLineInd += 1
+                        segLine = linecache.getline(segwayFile, segwayLineInd)
+                        sfields = segLine.split()
+                        schr = sfields[0]
+                        sstart = int(sfields[1])
+                        send = int(sfields[2])
+
+                    else:
+                        if cend < send:
+                            chmmLineInd += 1
+                            chmmLine = linecache.getline(chmmFile, chmmLineInd)
+                            cfields = chmmLine.split()
+                            cchr = cfields[0]
+                            cstart = int(cfields[1])
+                            cend = int(cfields[2])
+
+                        else: # cend == send:
+                            chmmLineInd += 1
+                            chmmLine = linecache.getline(chmmFile, chmmLineInd)
+                            cfields = chmmLine.split()
+                            cchr = cfields[0]
+                            cstart = int(cfields[1])
+                            cend = int(cfields[2])
+
+                            segwayLineInd += 1
+                            segLine = linecache.getline(segwayFile, segwayLineInd)
+                            sfields = segLine.split()
+                            schr = sfields[0]
+                            sstart = int(sfields[1])
+                            send = int(sfields[2])
+
+                else: # else : if overlap <= zero
+                    while cstart > send and schr == cchr: # if at the beginning of chromosome, chmm is missing bps - I know segway won't be missing basepairs : if overlap < 0
+                        #print('here')
+                        segwayLineInd += 1
+                        segLine = linecache.getline(segwayFile, segwayLineInd)
+                        sfields = segLine.split()
+                        schr = sfields[0]
+                        sstart = int(sfields[1])
+                        send = int(sfields[2])
+
+                    if overlap == 0:
+                        chmmLineInd += 1
+                        chmmLine = linecache.getline(chmmFile, chmmLineInd)
+                        cfields = chmmLine.split()
+                        cchr = cfields[0]
+                        cstart = int(cfields[1])
+                        cend = int(cfields[2])
+                
+                        segwayLineInd += 1
+                        segLine = linecache.getline(segwayFile, segwayLineInd)
+                        sfields = segLine.split()
+                        schr = sfields[0]
+                        sstart = int(sfields[1])
+                        send = int(sfields[2])
+                
+
+            else: # one of them has moved forward, so the next should read until it reaches it 
+                while schr == current_chr:
+                    #print('there')
+                    segwayLineInd += 1
+                    segLine = linecache.getline(segwayFile, segwayLineInd)
+                    sfields = segLine.split()
+                    schr = sfields[0]
+                    sstart = int(sfields[1])
+                    send = int(sfields[2])
+
+                while cchr == current_chr:
+                    chmmLineInd += 1
+                    chmmLine = linecache.getline(chmmFile, chmmLineInd)
+                    cfields = chmmLine.split()
+                    cchr = cfields[0]
+                    cstart = int(cfields[1])
+                    cend = int(cfields[2])
+
+        linecache.clearcache()
+        
+        # save the matrix - keep the count
+
+        overlap_df = pd.DataFrame(overlap_mat, index = segway_cluster_list, columns = chmm_class_list)
+
+        outputFileName = 'overlap_segway_%s_chmm_%s_nonself.pkl' %(segwayAccession, chmmAccession)
+        outputFile = dataFolder + dataSubFolder + annAccession + '/' + outputFileName
+        with open(outputFile, 'wb') as f:
+            pickle.dump(overlap_df, f)
+
+    os.system('gzip %s' %(segwayFile))
 
 
 

@@ -46,6 +46,20 @@ class EpigenomeAnnotation(object):
         self.donor_sex = donor_sex
         self.transcriptID = transcriptID
 
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> AnnotationMeta
+
+class SegwayAnnotationMeta(object):
+    def __init__(self, accession, tissueInfo, donorID, donorAge, donorSex, bedFile, transcriptFile, ChromFile, reside):
+        self.accession = accession # accession of the annotation
+        self.tissueInfo = tissueInfo # tissue info
+        self.donorID = donorID # donor info
+        self.donorAge = donorAge # donor info
+        self.donorSex = donorSex # donor info
+        self.bedFile = bedFile # name of the bed file in the folder
+        self.transcriptFile = transcriptFile # 'none'/name of the transcript file in the folder
+        self.ChromFile = ChromFile # 'none'/name of the chromhmm file in the folder
+        self.reside = reside # local address of the folder
+        self.batch = batch # which run was it
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Genes and Exons
 class Gene(object):
@@ -136,6 +150,47 @@ class Intron(object): # introns don't have ID, but just identified by exon_end+1
     def __str__(self):
         return 'start = %d, end = %d' %(self.start, self.end)
 
+#########################################
+# transcriptomic files preprocessing
+#########################################
+
+def transcriptFile_preprocessing(folder, fileName):
+
+    expFile = folder + fileName
+    print(expFile)
+    expression = {}
+    with open(expFile, 'r') as file:
+        line = file.readline() # there is one header line
+            
+        for line in file:
+            fields = line.strip().split()
+            geneID = fields[0]
+            transcriptID = fields[1]
+                
+            if geneID in expression:
+                expression[geneID] += np.log10(float(fields[5]) + 1)
+            else:
+                expression[geneID] = np.log10(float(fields[5]) + 1)
+                    
+        # saving expression dict            
+    expAccession = re.split('_|\.', fileName)[2]
+    outputFile = folder + 'geneExp_dict_' + expAccession + '.pkl'
+    print('printing this file %s' %(outputFile))
+         
+    with open(outputFile, 'wb') as f:
+        pickle.dump(expression, f)
+
+
+
+#########################################
+# annotation preprocessing
+#########################################
+
+
+
+#########################################
+# Meta info from the annotations
+#########################################
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # this is for Segway

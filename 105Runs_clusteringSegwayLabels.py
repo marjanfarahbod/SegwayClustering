@@ -1,14 +1,14 @@
 # At this stage, we are not sure what classifier is doing and with a classifier we have the limitation of training and training data. I want to know how do the samples look with regards to the values that go into the classifier. I also want to compare them to the transcript data report.
-
+#
 # TODO:
 # 1. Do the clustering of the Segway labels using the Classifier input features, all of them.
 # 2. Add the Expression data to the plots, how does it look? How do you expect it to look?
 # 3. Add the remaining track data (those not used in the classification) to the plot, how do they look?
-
+#
 # The outcome:
 # 1. To identify label groupings and examine their transcript data
 # 2. To pick training samples for the classifier for the under-represented labels
-
+#
 # code sections
 # 1. Get the meta info for the annotations
 # 2. Get the track values for labels
@@ -54,7 +54,8 @@ inputFile = dataFolder + dataSubFolder + 'biosample_tissue_info.pkl'
 with open(inputFile, 'rb') as f:
     tissue_info = pickle.load( f)
 
-with open(IDmap, 'rb') as f:
+inputFile = dataFolder + 'testBatch105/runID_accession_map_105run.pkl'
+with open(inputFile, 'rb') as f:
     runIDMap = pickle.load(f)
 
 sampleFolder_list = list(tissue_info.keys())

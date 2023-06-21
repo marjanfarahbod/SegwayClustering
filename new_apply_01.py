@@ -1,4 +1,4 @@
-# The new apply function (instead of the one from the Max's code)
+# The new apply function (instead of the one from the 2019 GenomeBiology code)
 # 0. Initials
 # 1. For the 105 run batch, with the updated classifier
 # 2. for the home run the38batch

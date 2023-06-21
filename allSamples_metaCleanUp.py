@@ -483,8 +483,12 @@ for accession in accessionList:
         allMeta[accession]['plotFolder'] = annPlotFolder
         print(annPlotFolder)
         print(count)
-        
 
-    
+########################################
+# 4. changing things here and there
+########################################
+
+allMeta['ENCSR372GPS']['RNAseqFile'] = ['/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/the38batch/ENCSR372GPS/preferred_default_ENCFF314OZK.tsv']
+allMeta['ENCSR891ENU']['RNAseqFile'] = ['/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/testBatch_May112022/c18d7a27-308d-4f4f-bc56-6b0feccf1fae/preferred_default_ENCFF960OCQ.tsv']
 
 
