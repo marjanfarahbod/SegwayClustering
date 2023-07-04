@@ -979,6 +979,7 @@ for accession in accessionList:
 ########################################
 
 from transcription_overlap import SegwayTranscriptionEnrichment
+from transcription_overlap import SegwayGeneBodyEnrichment
 
 # I need to do it for the 21 remaining samples with the transcriptomic data
 dataFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/'
@@ -1021,10 +1022,32 @@ for accession in accessionList[40:]:
         RNAseqFile = annotationFolder +  '/geneExp_dict_' + expAccession + '.pkl'
         annFile = annotation['bedFile']
         mnemFile = annotationFolder + 'mnemonics_v04.txt'
+        extension = 3000
+        SegwayTranscriptionEnrichment(annotationFolder, annFile, expFile, extension, geneList, geneIDList, mnemFile)
+
+
+# calling the genebody enrichment function
+
+count = 0
+for accession in accessionList[206:]:
+    annotation = allMeta[accession]
+
+    #if ((('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
+    if((annotation['RNAseqFile'] == 'none')):
+        count+=1
+        print(count)
+        print(accession)
+
+        annotationFolder = annotation['folder']
+        print(annotationFolder)
+
+        annFile = annotation['bedFile']
+        mnemFile = annotationFolder + 'mnemonics_v04.txt'
         #geneList
         #geneIDList =
         extension = 3000
-        SegwayTranscriptionEnrichment(annotationFolder, annFile, expFile, extension, geneList, geneIDList)
+        SegwayGeneBodyEnrichment(annotationFolder, annFile, extension, geneList, geneIDList, mnemFile)
 
-         
+
+        
          
