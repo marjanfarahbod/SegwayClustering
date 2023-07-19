@@ -129,9 +129,9 @@ for accession in accessionList:
         runID = accession_runID[accession]
         signal_files[accession] = dataFolder + 'testBatch105/all_segtools/' + runID +  '/signal_distribution/signal_distribution.tab'
 
-# problem with 205 and 38
+# problem with 205 (no signal file)
 plotFileName = {}
-for accession in accessionList[206:]:
+for accession in accessionList:
 
     annotation = allMeta[accession]
         
