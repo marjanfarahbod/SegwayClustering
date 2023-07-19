@@ -31,6 +31,7 @@ inputFile = dataFolder +  inputFileName
 with open(inputFile, 'rb') as f:
     allMeta = pickle.load(f)
 
+accessionList = list(allMeta.keys())
 # Segway states:
 segwayStates = ['Promoter', 'PromoterFlanking', 'Enhancer', 'EnhancerLow', 'Bivalent', 'CTCF', 'Transcribed', 'K9K36', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
 print(len(segwayStates))
@@ -271,7 +272,7 @@ for i in range(11):
         meanBin = np.mean(sib)
         meanBinMat[i,j] = meanBin
 
-        color = bgcolors[int(meanBin*100)]
+        color = bgcolors[int(meanBin*80)]
 
         axs[i,j].set_facecolor(color)
         axs[i,j].bar(barx, hist[0], width=.06, color='black')
@@ -315,14 +316,30 @@ plt.show()
 # *. the big fat genome regional plot
 ########################################
 # Look around active genes - pull up some papers. Start with the same region.
-
+import linecache
 # define the matrix for collecting
-annotMat = np.zeros((234, 20000))
+chrList = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9',
+           'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21']
+
+W = 300
+annotMat = np.zeros((235, W))
+scor== 234040702 # SPP2, Chr2, 30000
+scor = 24280190 # chr7
+scor = 72772659 # chr15
+regionChr = 'chr7' # 'chr15'
+regionChrInd = chrList.index(regionChr)
 # for each of the accessions
 for accession in accessionList:
 
+    if accession == 'ENCSR424JDX':
+        print(accessionList.index(accession))
+        continue
+    
+    a = accessionList.index(accession)
 
+    print(a, accession)
     annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
     annFile = annotation['bedFile']
 
     if annFile.endswith('gz'):
@@ -332,15 +349,362 @@ for accession in accessionList:
         os.system('gunzip %s.gz' %(annFile))
 
     annLineCount = int(sp.getoutput('wc -l %s' %(annFile)).split()[0])
-
-    line = linecache.getline(annFile, )
     
+    mnemFile = annotationFolder + 'mnemonics_v04.txt'
+    
+    label_term_mapping = {}
+    with open(mnemFile, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
 
-# pull up the .bed file.
+    slineInd = 1
+    elineInd = annLineCount
+    lineInd = int(elineInd/2)
+    line = linecache.getline(annFile, lineInd)
+    chr = line.split()[0]
+    while chrList.index(chr) != regionChrInd:
+    
+        if chrList.index(chr) < regionChrInd:
+            slineInd = lineInd
+            lineInd = int(slineInd + ((elineInd-slineInd)/2))
+            line = linecache.getline(annFile, lineInd)
+            chr = line.split()[0]
+            print(chr)
+        else:
+            if chrList.index(chr) > regionChrInd:
+                elineInd = lineInd
+                lineInd = int(slineInd + ((elineInd-slineInd)/2))
+                line = linecache.getline(annFile, lineInd)
+                chr = line.split()[0]
 
+    sind = int(line.split()[1])
+    if sind > scor: # staring coordinate
+        eind = int(line.split()[2])
+        while (sind > scor) or (eind < scor):
+            lineInd = lineInd - 1
+            line = linecache.getline(annFile, lineInd)
+            sind = int(line.split()[1])
+            eind = int(line.split()[2])
+    else:
+        if sind < scor:
+            eind = int(line.split()[2])
+            while (sind > scor) or (eind < scor):
+                lineInd = lineInd + 1
+                line = linecache.getline(annFile, lineInd)
+                sind = int(line.split()[1])
+                eind = int(line.split()[2])
+            
+
+    walker = 0
+    steps = int((eind - scor)/100)
+    color = label_term_mapping[line.split()[3].split('_')[0]]
+    colorInd = segwayStates.index(color)
+    annotMat[a, walker:walker+steps-1] = colorInd
+    walker += steps
+    print(steps)
+    while walker < W:
+        print(line)
+        print(steps)
+        lineInd +=1
+        print(walker)
+        print(color)
+        line = linecache.getline(annFile, lineInd)
+        sind = int(line.split()[1])
+        eind = int(line.split()[2])
+        steps = min(int((eind-sind)/100), W-walker)
+        color = label_term_mapping[line.split()[3].split('_')[0]]
+        colorInd = segwayStates.index(color)
+        print(colorInd)
+        annotMat[a, walker:walker+steps] = colorInd
+        walker += steps
+        
+    linecache.clearcache()
+    os.system('gzip %s' %(annFile))
+
+
+book = np.delete(annotMat, 205, 0)
+annotMat = book
+print(annotMat.shape)
+outputFileName = 'annotationMap234Cells_chr7.pkl'
+outputFile = dataFolder + outputFileName
+with open(outputFile, 'wb') as f:
+    pickle.dump(annotMat, f)
+
+#inputFileName = 'annotationMap234Cells_chr15.pkl'
+inputFileName = 'annotationMap234Cells_chr7.pkl'
+inputFile = dataFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    annotMat = pickle.load(f)
+
+
+sns.heatmap(annotMat)
+plt.show()
 # in the .bed file, reach out to the region
-
+#scor = 73065000
+scor = 72772659
 chr15, 73065000 + 20k
 
+# colors
+label_color_mapping = {'Promoter': [255,0,0],
+ 'PromoterFlanking': [255,68,0],
+ 'Enhancer': [255,195,77],
+ 'EnhancerLow': [255,255,0],
+ 'Bivalent': [189,183,107],
+ 'CTCF': [196,225,5],
+ 'Transcribed': [0,128,0],
+ 'K9K36': [102,205,170],
+ 'FacultativeHet': [128,0,128],
+ 'ConstitutiveHet': [138,145,208],
+ 'Quiescent': [255,255,255]}
 
+mycolors = [[255,0,0],
+          [255,68,0],
+          [255,195,77],
+          [255,255,0],
+          [189,183,107],
+          [196,225,5],
+          [0,128,0],
+          [102,205,170],
+          [128,0,128],
+          [138,145,208],
+          [255,255,255]]
+
+colorList = []
+for color in mycolors:
+    colorList.append(np.array(color)/256)
+
+
+import matplotlib.colors as colors
+cmap = colors.ListedColormap(colorList)
+boundaries = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+norm = colors.BoundaryNorm(boundaries, cmap.N, clip=True)
+
+# we have to do a change in sib.
+sibplus = np.copy(sib)
+
+for i,label in reversed(list(enumerate(label_order))):
+    book = np.where(sib == label)
+    sibplus[book] = i
+
+
+df = pd.DataFrame(annotMat)
+
+sib = sns.clustermap(df, method = 'ward', col_cluster=False)
+rowInds = sib.dendrogram_row.reordered_ind
+
+sns.heatmap(annotMat[rowInds,:], cmap=cmap, norm=norm)
+plt.show()
+print(figFile)
+figFile = plotFolder + figureFolder + 'annotMat_chr7.pdf'
+plt.savefig(figFile)
+plt.close('all')
+plt.show()
+
+# removing the 205 from rowInds
+#accessionList.pop(205)
+for i in rowInds:
+    accession = accessionList[i]
+    annotation = allMeta[accession]
+    print(annotation['tissueInfo'][0])
+
+
+########################################
+# *. the sample feature plot - average 
+########################################
+feature_names_plotOrder_renamed = ['initial exon',  "5' flanking (1-1000 bp)",'initial intron', 'internal exons','internal introns', 'terminal exon',  'terminal intron', "3' flanking (1-1000 bp)" , "5' flanking (1000-10000 bp)","3' flanking (1000-10000 bp)",'H3K4me3','H3K27ac','H3K4me1', 'H3K36me3','H3K27me3','H3K9me3']
+
+inputFile = dataFolder + 'allsamples_featureMat.pkl'
+with open(inputFile, 'rb') as f:
+    allFeatureMetaData = pickle.load(f)
+
+meanMat = np.zeros((11, 16))
+wholeMat = allFeatureMatData['mat']
+from scipy.stats import zscore
+plot_data_z = zscore(wholeMat, axis = 0)
+# plot_data_z_thr = np.where(plot_data_z > 1, 1.1, plot_data_z)
+
+stateIndex = np.array(allFeatureMatData['termIndex'])
+for i in range(11):
+    book = np.where(stateIndex == i)[0]
+    subMat = plot_data_z_thr[book, :]
+    meanMat[i,:] = np.mean(subMat, axis=0)
+
+meanMat_thr = np.where(meanMat >1, 1.1, meanMat)
+cmap = plt.cm.coolwarm
+norm = colors.BoundaryNorm(np.arange(-1, 1.1, .5), cmap.N)
+plotDf = pd.DataFrame(meanMat_thr, segwayStates, feature_names_plotOrder_renamed)
+sns.heatmap(plotDf, center = 0,cmap=cmap, norm=norm, linewidths=.1, linecolor='white')
+#sns.heatmap(meanMat, center = 0,cmap=cmap, norm=norm)
+plt.title('average z-score of the feature values among the samples')
+plt.tight_layout()
+
+# plt.show()
+
+figFile = plotFolder + figureFolder + 'averageSignal_heatmap.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+#################################################
+# *. the sample feature plot - whole - supplement
+################################################
+
+# sort the segway state line and get the index of sort
+
+feature_names_plotOrder_renamed = ['initial exon',  "5' flanking (1-1000 bp)",'initial intron', 'internal exons','internal introns', 'terminal exon',  'terminal intron', "3' flanking (1-1000 bp)" , "5' flanking (1000-10000 bp)","3' flanking (1000-10000 bp)",'H3K4me3','H3K27ac','H3K4me1', 'H3K36me3','H3K27me3','H3K9me3']
+
+inputFile = dataFolder + 'allsamples_featureMat.pkl'
+with open(inputFile, 'rb') as f:
+    allFeatureMetaData = pickle.load(f)
+
+termIndex = np.asarray(allFeatureMetaData['termIndex'])
+termInd_sortInd = np.argsort(termIndex)
+
+# get the colors
+mycolors = [[255,0,0],
+          [255,68,0],
+          [255,195,77],
+          [255,255,0],
+          [189,183,107],
+          [196,225,5],
+          [0,128,0],
+          [102,205,170],
+          [128,0,128],
+          [138,145,208],
+          [255,255,255]]
+
+termInd_sort = np.sort(termIndex)
+plot_colors = []
+for ind in termInd_sort:
+    color = np.array(mycolors[ind])/255
+    plot_colors.append(color)
+
+
+meanMat = np.zeros((11, 16))
+wholeMat = allFeatureMatData['mat']
+from scipy.stats import zscore
+plot_data_z = zscore(wholeMat, axis = 0)
+
+wholeMat_sorted = plot_data_z[termInd_sortInd, :]
+wholeMat_zsthr = np.where(wholeMat_sorted > 3, 3, wholeMat_sorted)
+plotDf = pd.DataFrame(wholeMat_zsthr,  columns=feature_names_plotOrder_renamed)
+
+#sib = sns.clustermap(wholeMat_zsthr, figsize=(6, 12), cmap=cmap,row_colors= plot_colors, row_cluster=False, col_cluster=False)
+
+sib = sns.clustermap(plotDf, figsize=(6, 8), cmap=cmap,row_colors= plot_colors, row_cluster=False, col_cluster=False)
+
+plt.title('classifier input data sorted by predicted label - zscore for plot, threshold < 3')
+plt.tight_layout()
+
+# plt.show()
+figFile = plotFolder + figureFolder + 'classifier_signal_supplement.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+
+#################################################
+# *. feature plot for one and multiple samples - for the diagram
+################################################
+
+inputFile = dataFolder + 'plot15samples_termSortedFeatureMat.pkl'
+with open(inputFile, 'rb') as f:
+    allFeatureMatData = pickle.load(f)
+
+
+wholeMat = allFeatureMatData['mat']
+from scipy.stats import zscore
+plot_data_z = zscore(wholeMat, axis = 0)
+plot_data_z_thr = np.where(plot_data_z > 3, 3, plot_data_z)
+
+cmap = plt.cm.coolwarm
+sns.heatmap(plot_data_z_thr[0:108,], center = 0,cmap=cmap, linewidths=.1, linecolor='white')
+plt.show()
+#sns.heatmap(meanMat, center = 0,cmap=cmap, norm=norm)
+plt.title('feature for a few samples - zscore')
+plt.tight_layout()
+
+# plt.show()
+
+figFile = plotFolder + figureFolder + 'featureHeatmap_15samplesSection.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+########################################
+# * get the one line color from the heatmap
+########################################
+
+inputFileName = 'annotationMap234Cells_chr15.pkl'
+inputFile = dataFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    annotMat = pickle.load(f)
+
+
+for accession in accessionList:
+    annotation = allMeta[accession]
+    if annotation['tissueInfo'][0] == 'K562':
+        print(accession)
+    
+ind = accessionList.index('ENCSR019DPG')
+book = annotMat[ind, :].reshape((200,1))
+
+sns.heatmap(book, cmap=cmap, norm=norm)
+
+figFile = plotFolder + figureFolder + 'oneSample_annotColor_K562.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+plt.show()
+
+########################################
+# * length distribution plots
+########################################
+
+
+length_files = {}
+for accession in accessionList:
+    annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
+    if accession == 'ENCSR121RCG':
+        continue
+
+    if '38batch' in annotationFolder:
+        length_files[accession] = annotationFolder + 'segOutput/length_distribution/segment_sizes.tab'
+
+
+    if 'May11' in annotationFolder:
+        length_files[accession] = annotationFolder + 'call-segtools/segment_sizes.tab'
+
+    if 'Batch105' in annotationFolder:
+        runID = accession_runID[accession]
+        length_files[accession] = dataFolder + 'testBatch105/all_segtools/' + runID +  '/length_distribution/segment_sizes.tab'
+
+
+labelCoverageLists = {} # put the labels with the same state individually
+stateCoverageLists = {} # sum the labels with the same state
+for s in range(segwayStates): 
+
+for accession in accessionList:
+    annotation = allMeta[accession]
+    annFolder = annotation['folder']
+
+    mnemFile = annotationFolder + 'mnemonics_v04.txt'
+    
+    label_term_mapping = {}
+    with open(mnemFile, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+
+    lfile = length_files[accession]     
+    with open(lfile, 'r') as f:
+        for line in f:
+            print(line)
 
