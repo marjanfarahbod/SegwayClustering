@@ -6,6 +6,7 @@
 # 4. The prediction probabilities DONE
 # *. the big fat genome regional plot
 # *. The prediction some sort of filtering?
+# *. The other tracks bar thing plot
 
 #
 #########################################
@@ -32,6 +33,7 @@ with open(inputFile, 'rb') as f:
     allMeta = pickle.load(f)
 
 accessionList = list(allMeta.keys())
+accessionList.remove(accessionList[205])
 # Segway states:
 segwayStates = ['Promoter', 'PromoterFlanking', 'Enhancer', 'EnhancerLow', 'Bivalent', 'CTCF', 'Transcribed', 'K9K36', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']
 print(len(segwayStates))
@@ -319,14 +321,15 @@ plt.show()
 import linecache
 # define the matrix for collecting
 chrList = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9',
-           'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21']
+           'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22']
 
 W = 300
-annotMat = np.zeros((235, W))
-scor== 234040702 # SPP2, Chr2, 30000
+annotMat = np.zeros((234, W))
+scor = 44900796 # chr19 44905796..44909393 APOE
+scor = 234040702 # SPP2, Chr2, 30000
 scor = 24280190 # chr7
 scor = 72772659 # chr15
-regionChr = 'chr7' # 'chr15'
+regionChr = 'chr19' # 'chr15'
 regionChrInd = chrList.index(regionChr)
 # for each of the accessions
 for accession in accessionList:
@@ -424,11 +427,11 @@ for accession in accessionList:
     linecache.clearcache()
     os.system('gzip %s' %(annFile))
 
-
-book = np.delete(annotMat, 205, 0)
-annotMat = book
+    
+# book = np.delete(annotMat, 205, 0) # not needed if filtered at accessionList
+annotMat = annotMat[0:234, :]
 print(annotMat.shape)
-outputFileName = 'annotationMap234Cells_chr7.pkl'
+outputFileName = 'annotationMap234Cells_chr19_APOE.pkl'
 outputFile = dataFolder + outputFileName
 with open(outputFile, 'wb') as f:
     pickle.dump(annotMat, f)
@@ -446,7 +449,7 @@ plt.show()
 #scor = 73065000
 scor = 72772659
 chr15, 73065000 + 20k
-
+ n
 # colors
 label_color_mapping = {'Promoter': [255,0,0],
  'PromoterFlanking': [255,68,0],
@@ -505,10 +508,10 @@ plt.show()
 
 # removing the 205 from rowInds
 #accessionList.pop(205)
-for i in rowInds:
+for k, i in enumerate(rowInds):
     accession = accessionList[i]
     annotation = allMeta[accession]
-    print(annotation['tissueInfo'][0])
+    print(k,annotation['tissueInfo'][0])
 
 
 ########################################
@@ -521,7 +524,7 @@ with open(inputFile, 'rb') as f:
     allFeatureMetaData = pickle.load(f)
 
 meanMat = np.zeros((11, 16))
-wholeMat = allFeatureMatData['mat']
+wholeMat = allFeatureMetaData['mat']
 from scipy.stats import zscore
 plot_data_z = zscore(wholeMat, axis = 0)
 # plot_data_z_thr = np.where(plot_data_z > 1, 1.1, plot_data_z)
@@ -532,18 +535,19 @@ for i in range(11):
     subMat = plot_data_z_thr[book, :]
     meanMat[i,:] = np.mean(subMat, axis=0)
 
-meanMat_thr = np.where(meanMat >1, 1.1, meanMat)
+meanMat_thr = np.where(meanMat >2, 2, meanMat)
 cmap = plt.cm.coolwarm
-norm = colors.BoundaryNorm(np.arange(-1, 1.1, .5), cmap.N)
+norm = colors.BoundaryNorm(np.arange(-1, 2, .5), cmap.N)
 plotDf = pd.DataFrame(meanMat_thr, segwayStates, feature_names_plotOrder_renamed)
 sns.heatmap(plotDf, center = 0,cmap=cmap, norm=norm, linewidths=.1, linecolor='white')
+#plt.show()
 #sns.heatmap(meanMat, center = 0,cmap=cmap, norm=norm)
 plt.title('average z-score of the feature values among the samples')
 plt.tight_layout()
 
 # plt.show()
 
-figFile = plotFolder + figureFolder + 'averageSignal_heatmap.pdf'
+figFile = plotFolder + figureFolder + 'averageSignal_heatmap_6sec.pdf'
 print(figFile)
 plt.savefig(figFile)
 plt.close('all')
@@ -584,23 +588,29 @@ for ind in termInd_sort:
 
 
 meanMat = np.zeros((11, 16))
-wholeMat = allFeatureMatData['mat']
+wholeMat = allFeatureMetaData['mat']
 from scipy.stats import zscore
 plot_data_z = zscore(wholeMat, axis = 0)
 
 wholeMat_sorted = plot_data_z[termInd_sortInd, :]
 wholeMat_zsthr = np.where(wholeMat_sorted > 3, 3, wholeMat_sorted)
+
+wholeMat_2PosThr = np.where(wholeMat_sorted > 1.75, 1.75, wholeMat_sorted)
+wholeMat_2PosNegThr = np.where(wholeMat_2PosThr < -1.75, -1.75, wholeMat_2PosThr)
+plotDf = pd.DataFrame(wholeMat_2PosNegThr,  columns=feature_names_plotOrder_renamed)
+
 plotDf = pd.DataFrame(wholeMat_zsthr,  columns=feature_names_plotOrder_renamed)
 
 #sib = sns.clustermap(wholeMat_zsthr, figsize=(6, 12), cmap=cmap,row_colors= plot_colors, row_cluster=False, col_cluster=False)
 
 sib = sns.clustermap(plotDf, figsize=(6, 8), cmap=cmap,row_colors= plot_colors, row_cluster=False, col_cluster=False)
+plt.show()
 
 plt.title('classifier input data sorted by predicted label - zscore for plot, threshold < 3')
 plt.tight_layout()
 
 # plt.show()
-figFile = plotFolder + figureFolder + 'classifier_signal_supplement.pdf'
+figFile = plotFolder + figureFolder + 'classifier_signal_supplement_175Filter.pdf'
 print(figFile)
 plt.savefig(figFile)
 plt.close('all')
@@ -670,8 +680,6 @@ length_files = {}
 for accession in accessionList:
     annotation = allMeta[accession]
     annotationFolder = annotation['folder']
-    if accession == 'ENCSR121RCG':
-        continue
 
     if '38batch' in annotationFolder:
         length_files[accession] = annotationFolder + 'segOutput/length_distribution/segment_sizes.tab'
@@ -687,13 +695,16 @@ for accession in accessionList:
 
 labelCoverageLists = {} # put the labels with the same state individually
 stateCoverageLists = {} # sum the labels with the same state
-for s in range(segwayStates): 
+for s in segwayStates:
+    print(s)
+    labelCoverageLists[s] = []
+    stateCoverageLists[s] = []
 
 for accession in accessionList:
     annotation = allMeta[accession]
     annFolder = annotation['folder']
 
-    mnemFile = annotationFolder + 'mnemonics_v04.txt'
+    mnemFile = annFolder + 'mnemonics_v04.txt'
     
     label_term_mapping = {}
     with open(mnemFile, 'r') as mnemonics:
@@ -703,8 +714,226 @@ for accession in accessionList:
             term = line.strip().split()[1]
             label_term_mapping[label] = term
 
+    sampleStateCoverage = np.zeros(11)
     lfile = length_files[accession]     
     with open(lfile, 'r') as f:
-        for line in f:
-            print(line)
+        for i, line in enumerate(f):
+            if i < 2:
+                continue
+            #print(line)
+            label = line.split()[0]
+            coverage = float(line.split()[6])
+            term = label_term_mapping[label]
+            #print(term)
+            labelCoverageLists[term].append(coverage)
+            termInd = segwayStates.index(term)
+            #print(termInd)
+            #print(coverage)
+            sampleStateCoverage[termInd]+= coverage
 
+    for i,state in enumerate(segwayStates):
+        stateCoverageLists[state].append(sampleStateCoverage[i])
+
+
+plotData = []
+for i in range(11):
+    print(i)
+    plotData.append(stateCoverageLists[segwayStates[i]])
+
+plt.boxplot(plotData)
+plt.grid()
+figFile = plotFolder + figureFolder + 'genomeCoverage.pdf'
+print(figFile)
+plt.savefig(figFile)
+plt.close('all')
+
+plt.show()
+
+########################################
+# *. The other tracks bar thing plot
+########################################
+from scipy.stats import zscore
+
+runID_file = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/data/testBatch105/' + 'runID_accession_map_105run.pkl'
+with open(runID_file, 'rb') as pickledFile:
+    runID_accession105 = pickle.load(pickledFile)
+
+accession_runID = {}
+for runID in list(runID_accession105.keys()):
+    ac = runID_accession105[runID]
+    accession_runID[ac] = runID
+
+
+signal_files = {}
+for accession in accessionList:
+    annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
+    #if accession == 'ENCSR121RCG':
+    #    continue
+
+    if '38batch' in annotationFolder:
+        signal_files[accession] = annotationFolder + 'segOutput/call_signal_distribution/signal_distribution.tab'
+
+    if 'May11' in annotationFolder:
+        signal_files[accession] = annotationFolder + 'call-segtools/signal_distribution.tab'
+
+    if 'Batch105' in annotationFolder:
+        runID = accession_runID[accession]
+        signal_files[accession] = dataFolder + 'testBatch105/all_segtools/' + runID +  '/signal_distribution/signal_distribution.tab'
+
+smallTrackList =  ['CTCF', 'DNase-seq', 'ATAC-seq']
+# we do the zscore along the column FIRST, and then do the bar for each of the labels
+
+trackLabelKeyList = []
+for i in range(11):
+    for j in range(3):
+        trackLabelKeyList.append((i,j))
+
+values_dict = {}
+for key in trackLabelKeyList:
+    values_dict[key] = []
+
+# for each of the tracks, we will have a list of values and segway labels.
+stlValue_dict = {}
+for track in smallTrackList:
+    info = {}
+    info['values'] = []
+    info['labels'] = []
+    stlValue_dict[track] = info
+
+for accession in accessionList:
+
+    print(accessionList.index(accession))
+    print(accession)
+    annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
+
+    # the mnemonics file
+    label_term_mapping = {}
+    mnemonics_file = annotationFolder + 'mnemonics_v04.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+
+    labelCount = len(label_term_mapping)
+
+    #  get the mapping
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>
+    mapping_file = annotationFolder + 'trackname_assay.txt'
+    # read the mapping_file
+    track_assay_map = {}
+    sampleTrack_list = [] # list of the track type for the sample 
+    with open(mapping_file) as inputFile:
+        for line in inputFile:
+            fields = line.strip().split()
+            track_assay_map[fields[0]] = fields[1]
+            sampleTrack_list.append(fields[1])
+    sampleTrack_count = len(sampleTrack_list)
+
+    sampleTrack_list_sorted = []
+    for track in trackList:
+        for sampleTrack in sampleTrack_list:
+            if sampleTrack == track:
+                sampleTrack_list_sorted.append(sampleTrack)
+
+    # ge the signal dist file
+     # >>>>>>>>>>>>>>>>>>>>>>>>>>
+    signal_file = signal_files[accession]
+
+    signal_dist_mat = np.zeros((labelCount, sampleTrack_count))
+    with open(signal_file, 'r') as inputFile:
+        header = inputFile.readline()
+        for line in inputFile:
+            fields = line.strip().split()
+            #print(line)
+            track = track_assay_map[fields[1]]
+            track_ind = sampleTrack_list_sorted.index(track) # track list order
+            cluster_ind = int(fields[0]) # cluster list order
+            signal_dist_mat[cluster_ind][track_ind] = round(float(fields[2]), 4)
+            
+    z_signal_dist_mat = zscore(signal_dist_mat, axis=0)
+
+    for t, track in enumerate(smallTrackList):
+        if track in sampleTrack_list:
+            trackInd = sampleTrack_list_sorted.index(track)
+            for label in range(labelCount):
+                value = z_signal_dist_mat[label, trackInd]
+                segwayStateInd = segwayStates.index(label_term_mapping[str(label)])
+                stlValue_dict[track]['values'].append(value)
+                stlValue_dict[track]['labels'].append(segwayStateInd)
+                values_dict[(segwayStateInd, t)].append(value)
+
+# find the max and the mean
+for track in smallTrackList:
+    myVals = np.array(stlValue_dict[track]['values'])
+    print(np.min(myVals))
+    print(np.max(myVals))
+
+# the range for the x axis is -4 to 4
+
+# figure 11 * 3
+
+# for each plot, fetch the track, and then labels. 
+from matplotlib import colors
+fig, axs = plt.subplots( 11, 3, figsize=(4,8))
+ 
+#cmap = sns.diverging_palette(245, 15, s=80, l=40, sep=2, n = 15, as_cmap=True, center='dark')
+#cmap = sns.diverging_palette(245, 15, s=80, l=40, sep=2, n = 15, as_cmap=True, center='dark')
+cmap = plt.cm.get_cmap('Oranges')
+cmap = plt.cm.get_cmap('coolwarm')
+
+bgcolors = []
+for i in range(100):
+    bgcolors.append(cmap(i*5))
+    
+bins = np.linspace(-3, 3, 21)
+binCount = 20
+barx = np.zeros(binCount)
+for k in range(binCount):
+    barx[k]= np.mean([bins[k], bins[k+1]])
+
+meanBinMat = np.zeros((11,3))
+for i in range(11):
+    for j in range(3):
+        print(i, j)
+        #n, bins, patches = plt.hist(probDistDict[(i,j)], bins=binCount, density=True)
+        #bins = np.linspace(0, 1, 16)
+        hist = np.histogram(values_dict[(i,j)], bins, density=True)
+
+        #meanBin = np.mean(hist[0])
+        sib = [hist[0][i]*hist[1][i] for i in range(len(hist[0]))]
+        meanBin = np.mean(sib)
+        meanBinMat[i,j] = meanBin
+        print(meanBin)
+        if meanBin > .18:
+            meanBin = .18
+
+        #print('....', int(meanBin + np.abs(meanBin*300)))
+        color = bgcolors[int((meanBin + .179)*140)]
+
+        axs[i,j].set_facecolor(color)
+        axs[i,j].bar(barx, hist[0], width=.5, color='black')
+        #axs[i,j].bar(barx, n, width=.06, color='black')
+        #axs[i,j].hist(probDistDict[(i,j)], bins=15, density=True, color=['blue', 'green', 'black'])
+        axs[i,j].set_xlim(-3,3)
+        axs[i,j].set_ylim(0,2)
+        #axs[i,j].set_xticks([0, 1])
+        #axs[i,j].set_yticks([0, 4, 8])
+        axs[i,j].set_xticks([])
+        axs[i,j].set_yticks([])
+        axs[i,j].set_yticklabels([])
+        axs[i,j].set_xticklabels([])
+
+#plt.show()
+plotFolder_add = plotFolder + figureFolder
+figFile = plotFolder_add + 'threeTracks_dist_heatmap.pdf'
+print(figFile)
+plt.tight_layout()
+plt.savefig(figFile)
+plt.close('all')
+
+
+                
