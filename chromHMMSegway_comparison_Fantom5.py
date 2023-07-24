@@ -249,7 +249,6 @@ print(inputFile)
 with open(inputFile, 'rb') as f:
     allMappingInfo = pickle.load(f)
 
-    
 enhAccessionList = list(allMappingInfo.keys())
     
 # what is the expression distribution?
