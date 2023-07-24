@@ -763,7 +763,6 @@ for runID in list(runID_accession105.keys()):
     ac = runID_accession105[runID]
     accession_runID[ac] = runID
 
-
 signal_files = {}
 for accession in accessionList:
     annotation = allMeta[accession]
@@ -781,12 +780,13 @@ for accession in accessionList:
         runID = accession_runID[accession]
         signal_files[accession] = dataFolder + 'testBatch105/all_segtools/' + runID +  '/signal_distribution/signal_distribution.tab'
 
-smallTrackList =  ['CTCF', 'DNase-seq', 'ATAC-seq']
+#smallTrackList =  ['CTCF', 'DNase-seq', 'ATAC-seq']
+smallTrackList = trackList[6:]
 # we do the zscore along the column FIRST, and then do the bar for each of the labels
 
 trackLabelKeyList = []
-for i in range(11):
-    for j in range(3):
+for i in range(len(segwayStates)):
+    for j in range(len(smallTrackList)):
         trackLabelKeyList.append((i,j))
 
 values_dict = {}
@@ -878,7 +878,7 @@ for track in smallTrackList:
 
 # for each plot, fetch the track, and then labels. 
 from matplotlib import colors
-fig, axs = plt.subplots( 11, 3, figsize=(4,8))
+fig, axs = plt.subplots( len(segwayStates), len(smallTrackList), figsize=(4,8))
  
 #cmap = sns.diverging_palette(245, 15, s=80, l=40, sep=2, n = 15, as_cmap=True, center='dark')
 #cmap = sns.diverging_palette(245, 15, s=80, l=40, sep=2, n = 15, as_cmap=True, center='dark')
@@ -895,9 +895,9 @@ barx = np.zeros(binCount)
 for k in range(binCount):
     barx[k]= np.mean([bins[k], bins[k+1]])
 
-meanBinMat = np.zeros((11,3))
-for i in range(11):
-    for j in range(3):
+meanBinMat = np.zeros((segwayStateCount, len(smallTrackList)))
+for i in range(segwayStateCount):
+    for j in range(len(smallTrackList)):
         print(i, j)
         #n, bins, patches = plt.hist(probDistDict[(i,j)], bins=binCount, density=True)
         #bins = np.linspace(0, 1, 16)
@@ -908,11 +908,12 @@ for i in range(11):
         meanBin = np.mean(sib)
         meanBinMat[i,j] = meanBin
         print(meanBin)
-        if meanBin > .18:
-            meanBin = .18
+        #if meanBin > .18:
+        #    meanBin = .18
 
         #print('....', int(meanBin + np.abs(meanBin*300)))
-        color = bgcolors[int((meanBin + .179)*140)]
+        #color = bgcolors[int((meanBin + .179)*140)]
+        
 
         axs[i,j].set_facecolor(color)
         axs[i,j].bar(barx, hist[0], width=.5, color='black')
@@ -926,14 +927,97 @@ for i in range(11):
         axs[i,j].set_yticks([])
         axs[i,j].set_yticklabels([])
         axs[i,j].set_xticklabels([])
+        myMean = np.mean(values_dict[(i,j)])
+        axs[i,j].plot([myMean, myMean], [0, 2], 'w', lineWidth ='1.1')
 
 #plt.show()
 plotFolder_add = plotFolder + figureFolder
-figFile = plotFolder_add + 'threeTracks_dist_heatmap.pdf'
+figFile = plotFolder_add + 'sixTracks_dist_heatmap_meanLine.pdf'
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile)
 plt.close('all')
 
+# just the redo of the above plot
+########################################
+# for each plot, fetch the track, and then labels. 
+from matplotlib import colors
+fig, axs = plt.subplots( len(segwayStates), len(smallTrackList), figsize=(4,8))
+ 
+#cmap = sns.diverging_palette(245, 15, s=80, l=40, sep=2, n = 15, as_cmap=True, center='dark')
+#cmap = sns.diverging_palette(245, 15, s=80, l=40, sep=2, n = 15, as_cmap=True, center='dark')
+cmap = plt.cm.get_cmap('Oranges')
+cmap = plt.cm.get_cmap('coolwarm')
+
+bgcolors = []
+for i in range(170):
+    bgcolors.append(cmap(i*5))
+    
+bins = np.linspace(-3.5, 3.5, 21)
+binCount = 20
+barx = np.zeros(binCount)
+for k in range(binCount):
+    barx[k]= np.mean([bins[k], bins[k+1]])
+
+myMeanMat = np.zeros((segwayStateCount, len(smallTrackList)))
+for i in range(segwayStateCount):
+    for j in range(len(smallTrackList)):
+        print(i, j)
+        #n, bins, patches = plt.hist(probDistDict[(i,j)], bins=binCount, density=True)
+        #bins = np.linspace(0, 1, 16)
+        hist = np.histogram(values_dict[(i,j)], bins, density=True)
+        myMeanMat[i,j] = np.mean(values_dict[i,j])
+
+minMyMean = np.min(myMeanMat)
+maxMyMean = np.max(myMeanMat)
+dis = maxMyMean - minMyMean
+fact = 1/dis
+
+adjustedMean = np.zeros((segwayStateCount, len(smallTrackList)))
+for i in range(segwayStateCount):
+    for j in range(len(smallTrackList)):
+        adjustedMean[i,j] = (myMeanMat[i,j] - minMyMean) * fact
+
+meanBinMat = np.zeros((segwayStateCount, len(smallTrackList)))
+for i in range(segwayStateCount):
+    for j in range(len(smallTrackList)):
+        print(i, j)
+        #n, bins, patches = plt.hist(probDistDict[(i,j)], bins=binCount, density=True)
+        #bins = np.linspace(0, 1, 16)
+        hist = np.histogram(values_dict[(i,j)], bins, density=True)
+        #myMean = np.mean(values_dict[i,j])
+
+        #meanBinMat[i,j] = myMean
+        #print(meanBin)
+        #if meanBin > .18:
+        #    meanBin = .18
+
+        #print('....', int(meanBin + np.abs(meanBin*300)))
+        color = bgcolors[int(adjustedMean[i,j]*70)]
+
+        axs[i,j].set_facecolor(color)
+        axs[i,j].bar(barx, hist[0], width=.5, color='black')
+        #axs[i,j].bar(barx, n, width=.06, color='black')
+        #axs[i,j].hist(probDistDict[(i,j)], bins=15, density=True, color=['blue', 'green', 'black'])
+        axs[i,j].set_xlim(-3.5,3.5)
+        axs[i,j].set_ylim(0,1.5)
+        #axs[i,j].set_xticks([0, 1])
+        #axs[i,j].set_yticks([0, 4, 8])
+        axs[i,j].set_xticks([])
+        axs[i,j].set_yticks([])
+        axs[i,j].set_yticklabels([])
+        axs[i,j].set_xticklabels([])
+        myMean = np.mean(values_dict[(i,j)])
+        axs[i,j].plot([0, 0], [0, 2], color = [11/256, 249/256, 21/256, 1], lineWidth ='1.3')
+        axs[i,j].plot([0, 0], [0, 2], 'w', lineWidth ='1.3', linestyle='dashed')
+        #axs[i,j].plot([0, 0], [0, 2], 'w', lineWidth ='1.1')
+        
+#plt.show()
+plotFolder_add = plotFolder + figureFolder
+figFile = plotFolder_add + 'sixTracks_dist_heatmap_meanLineV06.pdf'
+print(figFile)
+plt.tight_layout()
+plt.savefig(figFile)
+plt.close('all')
 
                 
