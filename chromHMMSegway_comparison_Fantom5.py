@@ -1,5 +1,15 @@
-# so here we are.
+# 
+# 0. Initials
+# 1. Enhancer file exploring
+# 2. Matching tissues
+# 3. Get the feature matrix
+# 4. Prediction
+# 
 
+# so here we are.
+########################################
+# 0. Initials
+########################################
 import linecache
 import pickle
 import re
@@ -31,7 +41,9 @@ fanSampleInfo = dataFolder + 'Fantom5Enh_data/Human.sample_name2library_id.txt'
 metadf = pd.read_csv(fanSampleInfo, sep='\t')
 
 
-
+########################################
+# 1. Enhancer file exploring
+########################################
 # count of regions: 65423, 1828
 
 # get list of all rows in the ID column (the header is actually refereing to the list of sample IDs as column header and is not a header for the coordinate column, but here it works like this)
@@ -102,7 +114,8 @@ print(1 - (a+b))
 # 91% of enhancers have appear in <350 tissues.
 # 74% appear in <200 tissues
 
-# tissue recognition
+########################################
+# 2. Matching tissues
 ########################################
 
 # get the list of tissues from the samples meta info file. Get the ID of my tissues, match them.
@@ -243,6 +256,12 @@ print(outputFile)
 with open(outputFile, 'wb') as f:
     pickle.dump(allMappingInfo, f)
 
+
+########################################
+# 3. Get the feature matrix
+########################################
+
+
 inputFileName = 'fantom5Mapping.pkl'
 inputFile = dataFolder + inputFileName
 print(inputFile)
@@ -375,7 +394,7 @@ with open(fanData_sorted, 'r') as f:
 ###### that function for Segway
 
 # get the coverage of the region for each of the labels:
-for accession in enhAccessionList[90:]:
+for accession in enhAccessionList:
     annotation = allMeta[accession]
     annFolder = annotation['folder']
 
@@ -410,7 +429,8 @@ for accession in enhAccessionList[90:]:
         
     previous_class = ''
 
-    labelExpMat = np.zeros((len(enh_dict), clusterCount))
+    #labelExpMat = np.zeros((len(enh_dict), clusterCount))
+    labelExpMat = np.zeros((len(enh_dict), segwayStateCount))
     
     annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
 
@@ -511,10 +531,11 @@ for accession in enhAccessionList[90:]:
 
                 ann_cluster = fields[3].split('_')[0]
                 clusterInd = int(ann_cluster)
+                stateInd = segwayStates.index(label_term_mapping[str(clusterInd)])
 
                 if gene_coverage < gene_length and adjusted_ann_length > 0:
                     new_coverage = min(adjusted_ann_length, gene_length - gene_coverage)
-                    labelExpMat[cgi, clusterInd] += new_coverage
+                    labelExpMat[cgi, stateInd] += new_coverage
                     adjusted_ann_length = adjusted_ann_length - new_coverage
                     gene_coverage += new_coverage
                     #coverPromoter
@@ -539,7 +560,7 @@ for accession in enhAccessionList[90:]:
     linecache.clearcache()
     os.system('gzip %s' %(annFile))
 
-    outputFile = annFolder  + 'enhancer_labelCoverage_segway.pkl' 
+    outputFile = annFolder  + 'enhancer_labelCoverage_segway_states.pkl' 
     with open(outputFile, 'wb') as f:
         pickle.dump(labelExpMat, f)
 
@@ -717,14 +738,31 @@ for accession in enhAccessionList[82:]:
         print(outputFile)
         print(enhAccessionList.index(accession))
 
-# for each of my own tissues, get the list of tissues from the tissue file that has "any" of the words in the name in it. print it, pick it.
 
-# once the list of tissues is made, for each tissue fetch the enhancer regions. We need the coverage of the labels for that region (much like the genes)
+########################################
+# 4. Prediction
+########################################
 
+inputFileName = 'fantom5Mapping.pkl'
+inputFile = dataFolder + inputFileName
+print(inputFile)
+with open(inputFile, 'rb') as f:
+    allMappingInfo = pickle.load(f)
+
+enhAccessionList = list(allMappingInfo.keys())
+
+for accession in enhAccessionList:
+    annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
+
+    inputFile = annotationFolder  + 'enhancer_labelCoverage_segway_states.pkl' 
+    with open(inputFile, 'rb') as f:
+        features = pickle.load(f)
+
+
+    FantomKey = allMappingInfo[accession]
+    enhExp 
 # apply the transcriptomic pipeline to it. 
 
-# first task: get my sample tisssues, and search the directory of the tissues for my samples
-
-# how many tissues do they have, what is the coverage, what is the overlap of the regions
 
 
