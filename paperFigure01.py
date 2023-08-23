@@ -914,7 +914,6 @@ for i in range(segwayStateCount):
         #print('....', int(meanBin + np.abs(meanBin*300)))
         #color = bgcolors[int((meanBin + .179)*140)]
         
-
         axs[i,j].set_facecolor(color)
         axs[i,j].bar(barx, hist[0], width=.5, color='black')
         #axs[i,j].bar(barx, n, width=.06, color='black')

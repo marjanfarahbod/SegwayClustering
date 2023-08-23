@@ -1,5 +1,6 @@
 # 0. Initials
 # 1. Three panel transcriptomic average
+# 2. The ROC curves for the AUC values
 
 
 #########################################
@@ -363,4 +364,8 @@ for accession in accessionList:
         #geneList
         extension = 3000
         SegwayTranscriptionEnrichment(annotationFolder, annFile, expFile, extension, geneList, geneIDList, mnemFile)
+
+########################################
+# 2. The ROC curves for the AUC values
+########################################
 
