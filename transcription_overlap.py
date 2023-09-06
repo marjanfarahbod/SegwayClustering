@@ -1,8 +1,9 @@
-# The two functions for chromhmm and Segway for transcription overlap.
-# 1. Segway overlap of the labels in genomic regions
-# 2. ChromHMM overlap of the labels in genomic regions
-# 3. Segway enrichment of the labels in genomic regions (from QC_transcriptionComparison_03.py)
-# 4. Segway enrichment for labels in genomic regions (no transcript file required)
+# The four functions for chromhmm and Segway for transcription plot and analyses
+# 1. Segway overlap of the labels in genomic regions - for prediction and regression
+# 2. ChromHMM overlap of the labels in genomic regions - for prediciton and regression model
+# 3. Segway enrichment of the labels in genomic regions (from QC_transcriptionComparison_03.py) - for enrichment plots
+# 4. Segway enrichment for labels in genomic regions (no transcript file required) - for enrichment plots
+
 import pickle
 import os
 import numpy as np
@@ -14,7 +15,12 @@ import linecache
 # 1. Segway overlap of the labels in genomic regions
 ########################################
 
-def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, geneIDList, promLength):
+def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, geneIDList, promLength, tssDown):
+
+    totalGeneCount = 24771
+    chrIndex = {'chr1':1, 'chr2':2, 'chr3':3, 'chr4':4, 'chr5':5, 'chr6':6, 'chr7':7, 'chr8':8, 'chr9':9,
+                'chr10':10, 'chr11':11, 'chr12':12, 'chr13':13, 'chr14':14, 'chr15':15, 'chr16':16,
+                'chr17':17, 'chr18':18, 'chr19':19, 'chr20':20, 'chr21':21, 'chr22':22}
 
     # load expression data
     with open(expFile, 'rb') as f:
@@ -51,8 +57,12 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
     ann_line_count = 0 # this is just to check the progress through the annotation file
     previous_class = ''
 
-    labelExpMat = np.zeros((len(geneIDList), clusterCount))
-    labelPromoterMat = np.zeros((len(geneIDList), clusterCount))
+    #labelExpMat = np.zeros((len(geneIDList), clusterCount))
+    #labelPromoterMat = np.zeros((len(geneIDList), clusterCount))
+
+    labelExpMat = np.zeros((totalGeneCount, clusterCount))
+    labelPromoterMat = np.zeros((totalGeneCount, clusterCount))
+     
         
     annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
     genomic_region_start_annLineInd = 0
@@ -61,7 +71,7 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
     previous_extension_end = 0 # doesn't matter since chr condition is never true until the first gene is processed
     previous_ann_chr = 'chr1'
 
-    while cgi < 26017: # >>>>>>>>>> MAIN
+    while cgi <  totalGeneCount:# (count of genes before chrX and chrY) #23897:#21468: #26017: # >>>>>>>>>> MAIN
 
         'we are in the gene territory, we are walking on the genes'
         
@@ -73,7 +83,13 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
         gene_end = geneList[geneID].end
 
         gene_length = gene_end - gene_start - 300
-        promoter_length = 1500
+        if gene_length <= 0:
+            cgi+=1
+            continue
+        #if gene_length <= 0:
+        #    print('geneLength zero')
+        #    print(cgi)
+        promoter_length = promLength
         gene_coverage = 0
         promoter_coverage = 0
 
@@ -83,7 +99,6 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
         if strand == '-':
             gene_end = gene_end + promoter_length - 300
                 
-
         # reading the next annotation
         line = linecache.getline(annFile, annLineInd)
         annLineInd +=1
@@ -95,6 +110,44 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
         ann_start = int(fields[1])
         ann_end = int(fields[2])
 
+        #>>>>>>>>>>>>>>>>>>>> the fix code with chromosome index. If gene moved to the next, walk on in the ann. If ann moved to the next, walk down in the ann
+
+        if (chrIndex[gene_chr] > chrIndex[ann_chr]): # in case of chromosome change because gene moved to the next chromosome
+            print('gene chr not equal to previous gene chr')
+            print('gene_chr %s' %(gene_chr))
+            print('p_gene_chr %s' %(previous_gene_chr))
+            print('ann_chr %s' %(ann_chr))
+                
+            while (ann_chr != gene_chr): # move on in the annotation until we reach to the next chromosome
+                #print('reading annotations until it is equal') # >>>> test
+                line = linecache.getline(annFile, annLineInd)
+                fields = line.strip().split()
+                annLineInd +=1
+                ann_line_count += 1
+
+                previous_ann_chr = ann_chr                
+                ann_chr = fields[0]
+                ann_start = int(fields[1])
+                ann_end = int(fields[2])
+
+            print(ann_chr)
+            print(previous_ann_chr)
+
+                
+        if (chrIndex[gene_chr] < chrIndex[ann_chr]): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
+            annLineInd = annLineInd - 2
+            line = linecache.getline(annFile, annLineInd)
+            annLineInd +=1
+            ann_line_count += 1
+            fields = line.strip().split()
+
+            ann_chr = fields[0]
+            ann_start = int(fields[1])
+            ann_end = int(fields[2])
+            print('marker 01')
+        
+
+        '''
         if (gene_chr != previous_gene_chr): # in case of chromosome change because gene moved to the next chromosome
             print('gene chr not equal to previous gene chr')
             print('gene_chr %s' %(gene_chr))
@@ -129,7 +182,7 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
             ann_end = int(fields[2])
             print('marker 01')
 
-
+        '''
         ''' 
         if this gene starts somewhere in the preivous genomic region, 
         I will go back in the annotation file to the beginning of annotation for the previous gene
@@ -139,7 +192,7 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
 
         while (ann_start > gene_start) and (gene_chr == ann_chr): # in case of overlapping genes
                 
-            annLineInd = max(annLineInd - 5,1)
+            annLineInd = max(annLineInd - 2,1)
             line = linecache.getline(annFile, annLineInd)
             annLineInd +=1
             ann_line_count += 1
@@ -151,7 +204,7 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
 
         while ((ann_start < gene_end) and (gene_chr == ann_chr)) and gene_coverage+promoter_coverage < gene_length+promoter_length: #and geneMatWalkIndex < 160: # while we still have annotation before the gene
 
-            # in the next sections we are processing the annotation
+            # in the next sections we are processing the annotation (if there is overlap)
             if not((ann_end < gene_start) or ann_start > gene_end):
 
                 ''' We are in the genonimc region (with extension)'''
@@ -193,8 +246,7 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
                         adjusted_ann_length = adjusted_ann_length - new_coverage
                         promoter_coverage += new_coverage
 
-
-                
+            # if there is no overlap
             if gene_coverage+promoter_coverage < gene_length+promoter_length:
                 line = linecache.getline(annFile, annLineInd)
                 annLineInd +=1
@@ -205,7 +257,14 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
                 ann_chr = fields[0]
                 ann_start = int(fields[1])
                 ann_end = int(fields[2])
+                #print(ann_start)
+                #print(ann_end)
 
+        if np.sum(labelExpMat[cgi, :]) == 0 and not(gene_length <= 0):
+            print('------------- zero')
+            print(cgi)
+            break
+        
         cgi += 1 # next gene
         previous_gene_end = gene_end
         previous_gene_chr = gene_chr
@@ -215,7 +274,7 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
     os.system('gzip %s' %(annFile))
 
     transPromoMat = {"genes": labelExpMat, "promoter": labelPromoterMat}
-    outputFile = annotationFolder  + 'exp_promoter_labelCover_promLength%d.pkl' %(promLength)
+    outputFile = annotationFolder  + 'exp_promoter_labelCover_promLength%d_v02.pkl' %(promLength)
     with open(outputFile, 'wb') as f:
         pickle.dump(transPromoMat, f)
 
@@ -226,6 +285,12 @@ def EPLabelCover_Segway(annotationFolder, expFile, annFile, mnemFile, geneList, 
 ########################################
 
 def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneList, geneIDList, promLength):
+
+    mgCount = 0 # count of missing genes
+    totalGeneCount = 24771
+    chrIndex = {'chr1':1, 'chr2':2, 'chr3':3, 'chr4':4, 'chr5':5, 'chr6':6, 'chr7':7, 'chr8':8, 'chr9':9,
+                'chr10':10, 'chr11':11, 'chr12':12, 'chr13':13, 'chr14':14, 'chr15':15, 'chr16':16,
+                'chr17':17, 'chr18':18, 'chr19':19, 'chr20':20, 'chr21':21, 'chr22':22}
 
     # load expression data
     with open(expFile, 'rb') as f:
@@ -253,8 +318,8 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
     ann_line_count = 0 # this is just to check the progress through the annotation file
     previous_class = ''
 
-    labelExpMat = np.zeros((len(geneIDList), clusterCount))
-    labelPromoterMat = np.zeros((len(geneIDList), clusterCount))
+    labelExpMat = np.zeros((totalGeneCount, clusterCount))
+    labelPromoterMat = np.zeros((totalGeneCount, clusterCount))
         
     annLineInd = 1 # this keeps the annotation line index, the first line is empty, thus the index starts at 1
     genomic_region_start_annLineInd = 0
@@ -264,7 +329,7 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
     previous_ann_chr = 'chr1'
 
     #while cgi < len(geneIDList) and annLineInd < annLineCount: # >>>> test: modify the condition for the test runs
-    while cgi < 25800: # >>>>>>>>>> MAIN
+    while cgi < totalGeneCount-100: # >>>>>>>>>> MAIN
         #sib = 1
         #while sib > 0 and cgi <10:
         #while cgi < 18431:# >>>>
@@ -283,8 +348,12 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
         #print(gene_start)
         #print(gene_end)
 
-        gene_length = gene_end - gene_start
-        promoter_length = 1500
+        gene_length = gene_end - gene_start - 300
+        if gene_length <= 0:
+            cgi+=1
+            continue
+        
+        promoter_length = promLength
         gene_coverage = 0
         promoter_coverage = 0
         #gene_length = gene_end - gene_start
@@ -298,10 +367,10 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
         # TODO: ideally: something to fix: the gene_length_last_unit for negative strand versus positive strand
 
         if strand == '+':
-            gene_start = gene_start - promoter_length
+            gene_start = gene_start - promoter_length + 300
 
         if strand == '-':
-            gene_end = gene_end + promoter_length
+            gene_end = gene_end + promoter_length - 300
             
         line = linecache.getline(annFile, annLineInd)
         annLineInd +=1
@@ -313,7 +382,8 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
         ann_start = int(fields[1])
         ann_end = int(fields[2])
 
-        if (gene_chr != previous_gene_chr): # in case of chromosome change because gene moved to the next chromosome
+        #if (gene_chr != previous_gene_chr): # in case of chromosome change because gene moved to the next chromosome
+        if (chrIndex[gene_chr] > chrIndex[ann_chr]): # in case of chromosome change because gene moved to the next chromosome
             print('gene chr not equal to previous gene chr')
             print('gene_chr %s' %(gene_chr))
             print('p_gene_chr %s' %(previous_gene_chr))
@@ -335,7 +405,8 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
             print(previous_ann_chr)
 
                 
-        if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
+        #if (ann_chr != gene_chr): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
+        if (chrIndex[gene_chr] < chrIndex[ann_chr]): # if annotation moved to the next chromosome, but gene has not yet moved to the next chromosome
             annLineInd = annLineInd - 2
             line = linecache.getline(annFile, annLineInd)
             annLineInd +=1
@@ -355,9 +426,9 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
 
         '''
             
-        while (ann_start > gene_start) and (gene_chr == ann_chr): # in case of overlapping genes
+        while (ann_start > gene_start) and (gene_chr == ann_chr): # in case of overlapping genes, and therefore annotation being ahead of gene
                 
-            annLineInd = max(annLineInd - 5,1)
+            annLineInd = max(annLineInd - 2,1)
             line = linecache.getline(annFile, annLineInd)
             annLineInd +=1
             ann_line_count += 1
@@ -416,6 +487,7 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
 
                 line = linecache.getline(annFile, annLineInd)
                 annLineInd +=1
+                #print(line)
 
                 ann_line_count += 1
                 fields = line.strip().split()
@@ -423,7 +495,12 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
                 ann_chr = fields[0]
                 ann_start = int(fields[1])
                 ann_end = int(fields[2])
-                
+
+        if np.sum(labelExpMat[cgi, :]) == 0 and not(gene_length <= 0):
+            print('------------- zero')
+            print(cgi)
+            mgCount+=1
+            # break
 
         cgi += 1 # next gene
         #print(cgi)
@@ -436,7 +513,7 @@ def EPLabelCover_chromHMM(annotationFolder, expFile, annFile, chromLabels, geneL
     os.system('gzip %s' %(annFile))
 
     transPromoMat = {"genes": labelExpMat, "promoter": labelPromoterMat}
-    outputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength%d.pkl' %(promLength)
+    outputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength%d_v03.pkl' %(promLength)
     with open(outputFile, 'wb') as f:
         pickle.dump(transPromoMat, f)
 
@@ -489,10 +566,18 @@ def SegwayTranscriptionEnrichment(annotationFolder, annFile, RNAseqFile, extensi
     previous_extension_end = 0 # doesn't matter since chr condition is never true until the first gene is processed
     previous_ann_chr = 'chr1'
 
+    expArray = np.zeros(26017)
+    for i in range(26017):
+        geneID = geneIDList[i]
+        expArray[i] = expression[geneID]
+
+    sib = expArray[expArray>0]
+    expQ30 = np.quantile(sib, .30)
+
     while cgi < 26017: # >>>>>>>>>> MAIN
             
         #print('cgi')
-        print(cgi)
+        #print(cgi)
 
         'we are in the gene territory, we are walking on the genes'
    
@@ -519,7 +604,7 @@ def SegwayTranscriptionEnrichment(annotationFolder, annFile, RNAseqFile, extensi
         gene_exp = expression[geneID]
         if gene_exp == 0:
             expMatInd = 0
-        elif gene_exp > 1:
+        elif gene_exp > expQ30: # alternative: if gene_exp>1 
             expMatInd = 2
         else:
             expMatInd = 1
@@ -765,7 +850,7 @@ def SegwayTranscriptionEnrichment(annotationFolder, annFile, RNAseqFile, extensi
     os.system('gzip %s' %(annFile))
 
     expOverlapMats = {"clusterMats": clusterMats}
-    outputFile = annotationFolder + 'defaultExp_5kg_expSummary_newSort.pkl'
+    outputFile = annotationFolder + 'defaultExp_5kg_expSummary_newSort_Q30_regen.pkl'
     with open(outputFile, 'wb') as f:
         pickle.dump(expOverlapMats, f)
 
@@ -773,7 +858,7 @@ def SegwayTranscriptionEnrichment(annotationFolder, annFile, RNAseqFile, extensi
 ########################################
 # 4. Segway enrichment for labels in genomic regions (no transcript file required)
 ########################################
-# this is only for the raw .bed files, where labels are only cluster numbers
+# this is only for the initial .bed files sorted by chromosome, where labels are only cluster numbers
 def SegwayGeneBodyEnrichment(annotationFolder, annFile, extension, geneList, geneIDList, mnemFile):
 
     # unzip the bed file
