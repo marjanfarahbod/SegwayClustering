@@ -11,7 +11,7 @@
 ## 2.0 annotation folder prep
 ## 2.1. preping expression data
 ## 2.2. preping annotation data
-# 3. Comparing the annotation labels to the genomic regions and transcriptomic data
+# 3. Comparing the annotation labels to the genomic regions and transcriptomic data - OBSOLETE
 # 4. Preprocessing transcriptomic data
 # 5. process the annotation file
 # 6. use the function to get the transcription enrichment for Segway
@@ -44,6 +44,22 @@ geneIDList = geneListsAndIDs[1]
 del geneListsAndIDs
 
 segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+
+# 0.1:
+geneIDsInfoFile = dataFolder  + 'geneIDsInfo.tsv'
+
+myGenes = list(geneList.keys())
+with open(geneIDsInfoFile, 'w') as f:
+    f.write('geneSymbol\tENS_ID\ttype\tchr\tstart\tend\tstrand\n')
+    for gene in myGenes:
+        f.write('%s\t%s\t%s\t%s\t%d\t%d\t%s\n' %(geneList[gene].name,
+                                                 geneList[gene].ENS_ID,
+                                                 geneList[gene].gtype,
+                                                 geneList[gene].chrom,
+                                                 geneList[gene].start,
+                                                 geneList[gene].end,
+                                                 geneList[gene].strand))
+
 
 ########################################
 # 1. Specifics
@@ -1003,14 +1019,17 @@ with open(inputFile, 'rb') as f:
 accessionList = list(allMeta.keys())
 
 count = 0
-for accession in accessionList[40:]:
+for accession in accessionList:
     annotation = allMeta[accession]
+    count+=1
 
     #if ((('38batch' in annotation['folder']) or ('May11' in annotation['folder'])) and not(annotation['RNAseqFile'] == 'none')):
     if(not(annotation['RNAseqFile'] == 'none')):
-        count+=1
         print(count)
-        RNAFile = annotation['RNAseqFile'][0]
+        if len(annotation['RNAseqFile']) > 5:
+            RNAFile = annotation['RNAseqFile']
+        else:
+            RNAFile = annotation['RNAseqFile'][0]
         print(count)
         print(accession)
         print(RNAFile)
@@ -1023,7 +1042,7 @@ for accession in accessionList[40:]:
         annFile = annotation['bedFile']
         mnemFile = annotationFolder + 'mnemonics_v04.txt'
         extension = 3000
-        SegwayTranscriptionEnrichment(annotationFolder, annFile, expFile, extension, geneList, geneIDList, mnemFile)
+        SegwayTranscriptionEnrichment(annotationFolder, annFile, RNAseqFile, extension, geneList, geneIDList, mnemFile)
 
 
 # calling the genebody enrichment function
