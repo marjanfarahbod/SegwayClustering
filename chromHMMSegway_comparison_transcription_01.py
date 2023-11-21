@@ -108,6 +108,7 @@ with open(inputFile, 'rb') as f:
     allMeta = pickle.load(f)
 
 accessionList = list(allMeta.keys())
+accessionList.remove(accessionList[205])
 
 count = 0
 for accession in accessionList:
