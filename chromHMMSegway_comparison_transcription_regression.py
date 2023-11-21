@@ -8,7 +8,8 @@
 # 5.6 LinR Segway 
 # 5.7 LinR Chrom 
 # 5.8 boxplots for the LinR
-
+# 6. supplement table: list of Segway accession and transcriptomic accession
+# see file chromHMMSegway_comparison_transcription_regression_otherSamples.py
 
 ########################################
 # 5.0 That regressiong thing - initial
@@ -48,7 +49,7 @@ with open(fileName, 'rb') as pickleFile:
     geneListsAndIDs = pickle.load(pickleFile)
     
 geneList = geneListsAndIDs[0]
-geneIDList = geneListsAndIDs[1]
+geneIDList = geneListsAndIDs[1][0:24771]
 del geneListsAndIDs
 
 
@@ -60,6 +61,65 @@ segwayStateCount = len(segwayStates)
 inputFile = dataFolder + 'geneAndPromoterAUCs_3000_segway_v04.pkl'
 with open(inputFile, 'rb') as f:
     aucs = pickle.load(f)
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#define a filter for zero genes. Chrom has much more zero genes cause it doesnt have coverage for some part of the genome.
+
+# for samples with both chrom and RNAseq, load the file and get the overlapping genes. We can get a list of overlapping genes for each of the samples. 
+
+count = 0
+geneFilterAll = {}
+for accession in accessionList:
+    annotation = allMeta[accession]
+
+    annotationFolder = annotation['folder']
+
+    if not(annotation['RNAseqFile'] == 'none') and not(annotation['chromFile'] == 'none'):
+        count+=1
+
+        #if count == 10:
+        #    break
+
+        if len(annotation['RNAseqFile'][0]) > 1:
+            RNAFile = annotation['RNAseqFile'][0]
+            print(RNAFile)
+        else:
+            RNAFile = annotation['RNAseqFile']
+            print(RNAFile)
+
+        expAccession = RNAFile[-15:-4]
+        expFile = annotationFolder +  'geneExp_dict_' + expAccession + '.pkl'
+        
+        with open(expFile, 'rb') as pickledFile:
+            expression = pickle.load(pickledFile) # load the expression file
+
+        # 0.3 Get the promoter/gene body coverage of the labels
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>
+        inputFile = annotationFolder + 'exp_promoter_labelCover_promLength3000_v02.pkl'
+        with open(inputFile, 'rb') as f:
+            segMats = pickle.load(f)  # promoter, genes
+
+        inputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength3000_v02.pkl'
+        with open(inputFile, 'rb') as f:
+            chromMats = pickle.load(f)  # promoter, genes
+
+        chromGenes = chromMats['genes']
+        segGenes = segMats['genes']
+
+        chromIns = (np.sum(chromGenes, axis=1) >0).astype(int)
+        segIns = (np.sum(segGenes, axis=1) > 0).astype(int)
+
+        chromPromo = chromMats['promoter']
+        segPromo = segMats['promoter']
+        
+        chromInsP = (np.sum(chromPromo, axis=1) >0).astype(int)
+        segInsP = (np.sum(segPromo, axis=1) > 0).astype(int)
+
+        sib = chromIns + segIns + chromInsP + segInsP
+        print(sum(sib==4))
+    
+        geneFilterAll[accession] = sib == 4
 
 ########################################
 # 5.1 Segway logistic regression
@@ -100,6 +160,8 @@ for accession in accessionList:
     
     if accession in list(aucs.keys()):
         annotation = allMeta[accession]
+
+        geneFilter = geneFilterAll[accession]
         
         annotationFolder = annotation['folder']
 
@@ -130,7 +192,7 @@ for accession in accessionList:
 
         # 0.3 Get the promoter/gene body coverage of the labels
         # >>>>>>>>>>>>>>>>>>>>>>>>>>
-        inputFile = annotationFolder + 'exp_promoter_labelCover_promLength3000.pkl'
+        inputFile = annotationFolder + 'exp_promoter_labelCover_promLength3000_v02.pkl'
         with open(inputFile, 'rb') as f:
             transPromoMat = pickle.load(f)  # promoter, genes
 
@@ -148,11 +210,11 @@ for accession in accessionList:
             else:
                 labelExpMat = transPromoMat['promoter']
         
-            sib = labelExpMat.sum(axis = 1)
-            filterGene = sib > 0 # genes that are present in the annotation
+            #sib = labelExpMat.sum(axis = 1)
+            #filterGene = sib > 0 # genes that are present in the annotation
 
             expArray = np.asarray([expression[x] for x in geneIDList]) # genes in the transcriptomic data that are in the gene map file
-            filterExp = expArray[filterGene,] # from these, we filter for those that have annotation
+            filterExp = expArray[geneFilter,] # from these, we filter for those that have annotation
 
             # 2. The expression filter switch mechanism, it has 5 switches 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -164,7 +226,7 @@ for accession in accessionList:
             if expMode == 1: # default
                 notExp = filterExp == 0
                 
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             # >>>>> 2.2 Switch 2
             expValues = filterExp[filterExp > 0]
             if expMode == 2: # 10% low expressed filtered
@@ -176,7 +238,7 @@ for accession in accessionList:
             
                 notExp = filterExp == 0
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
                 filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
                 filterExpMat = filFilExpMat
 
@@ -189,7 +251,7 @@ for accession in accessionList:
             
                 notExp = filterExp == 0
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
                 filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
                 filterExpMat = filFilExpMat
 
@@ -198,14 +260,14 @@ for accession in accessionList:
                 q10 = np.quantile(expValues, .1)
                 notExp = filterExp < q10
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
             # >>>>> 2.5 Switch 5
             if expMode == 5: # 15% low expressed considered zero expressed
                 q15 = np.quantile(expValues, .15)
                 notExp = filterExp < q15
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
             sumExp = filterExpMat.sum(axis = 1)
             filterExpMat = filterExpMat/sumExp[:,None] # normalizing the coverage to get ratio of the coverage by the labe
@@ -256,7 +318,7 @@ for accession in accessionList:
 
 ### save the data
 
-file = dataFolder + 'Segway_logisticRegression_output_v04.pkl'
+file = dataFolder + 'Segway_logisticRegression_output_v04_expFile_v02.pkl'
 with open(file, 'wb') as f:
     pickle.dump(regressionOutput, f)
 
@@ -264,13 +326,25 @@ with open(file, 'rb') as f:
     regOutput = pickle.load(f)
 
 ### save the model
-file = dataFolder + 'Segway_logisticRegression_model_v04.pkl'
+file = dataFolder + 'Segway_logisticRegression_model_v04_expFile_v02.pkl'
 with open(file, 'wb') as f:
     pickle.dump(regressionModel, f)
     
 file = dataFolder + 'Segway_logisticRegression_model_v04.pkl'
 with open(file, 'rb') as f:
     regModel = pickle.load(f)
+
+# 5.1. * the ROC plot
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+y_pred_proba = logreg.predict_proba(X_test)[::,1]
+fpr, tpr, _ = metrics.roc_curve(y_test,  y_pred_proba)
+
+#create ROC curve
+plt.plot(fpr,tpr)
+plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+plt.show()
 
 
 ########################################
@@ -303,6 +377,8 @@ for accession in accessionList:
     
     if accession in list(aucs.keys()):
         annotation = allMeta[accession]
+
+        geneFilter = geneFilterAll[accession]
         
         annotationFolder = annotation['folder']
 
@@ -322,7 +398,7 @@ for accession in accessionList:
 
         # 0.3 Get the promoter/gene body coverage of the labels
         # >>>>>>>>>>>>>>>>>>>>>>>>>>
-        inputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength3000.pkl'
+        inputFile = annotationFolder + 'exp_promoter_labelCover_chmm_promLength3000_v02.pkl'
         with open(inputFile, 'rb') as f:
             transPromoMat = pickle.load(f)  # promoter, genes
 
@@ -338,11 +414,11 @@ for accession in accessionList:
                 labelExpMat = transPromoMat['genes']
             else:
                 labelExpMat = transPromoMat['promoter']
-            sib = labelExpMat.sum(axis = 1)
-            filterGene = sib > 0 # genes that are present in the annotation
+            #sib = labelExpMat.sum(axis = 1)
+            #filterGene = sib > 0 # genes that are present in the annotation
 
             expArray = np.asarray([expression[x] for x in geneIDList]) # genes in the transcriptomic data that are in the gene map file
-            filterExp = expArray[filterGene,] # from these, we filter for those that have annotation
+            filterExp = expArray[geneFilter,] # from these, we filter for those that have annotation
 
             # 2. The expression filter switch mechanism, it has 5 switches 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -354,7 +430,7 @@ for accession in accessionList:
             if expMode == 1: # default
                 notExp = filterExp == 0
                 
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             # >>>>> 2.2 Switch 2
             expValues = filterExp[filterExp > 0]
             if expMode == 2: # 10% low expressed filtered
@@ -366,7 +442,7 @@ for accession in accessionList:
             
                 notExp = filterExp == 0
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
                 filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
                 filterExpMat = filFilExpMat
 
@@ -379,7 +455,7 @@ for accession in accessionList:
             
                 notExp = filterExp == 0
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
                 filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
                 filterExpMat = filFilExpMat
 
@@ -388,14 +464,14 @@ for accession in accessionList:
                 q10 = np.quantile(expValues, .1)
                 notExp = filterExp < q10
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
             # >>>>> 2.5 Switch 5
             if expMode == 5: # 15% low expressed considered zero expressed
                 q15 = np.quantile(expValues, .15)
                 notExp = filterExp < q15
             
-                filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+                filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
             sumExp = filterExpMat.sum(axis = 1)
             filterExpMat = filterExpMat/sumExp[:,None] # normalizing the coverage to get ratio of the coverage by the labe
@@ -441,7 +517,7 @@ for accession in accessionList:
 
 ### save the data
 
-file = dataFolder + 'Chrom_logisticRegression_output_v04.pkl'
+file = dataFolder + 'Chrom_logisticRegression_output_v04_expFile_v02.pkl'
 with open(file, 'wb') as f:
     pickle.dump(regressionOutput, f)
 
@@ -450,7 +526,7 @@ with open(file, 'rb') as f:
 
 ### save the model
 
-file = dataFolder + 'Chrom_logisticRegression_model_v04.pkl'
+file = dataFolder + 'Chrom_logisticRegression_model_v04_expFile_v02.pkl'
 with open(file, 'wb') as f:
     pickle.dump(regressionModel, f)
 
@@ -465,8 +541,8 @@ plotFolder = '/Users/marjanfarahbod/Documents/projects/segwayLabeling/plots/'
 # Segway: I am goint to do 4 panel plots: promoter, gene, balanced, unbalanced. Each panel will have the 5 box plots. There are list of 20 keys.
 switchLists = [['genes','promoter'], [1,2,3,4,5], ['balanced', 'unbalanced']]
 
-file = dataFolder + 'Segway_logisticRegression_output_v04.pkl'
-file = dataFolder + 'Chrom_logisticRegression_output_v04.pkl'
+file = dataFolder + 'Segway_logisticRegression_output_v04_expFile_v02.pkl'
+file = dataFolder + 'Chrom_logisticRegression_output_v04_expFile_v02.pkl'
 with open(file, 'rb') as f:
     regOutput = pickle.load(f)
 
@@ -477,7 +553,7 @@ for i in range(2):
     regionMode = switchLists[0][i]
     for k in range(2):
         regMode = switchLists[2][k]
-        aucMat = np.zeros((85, 5))
+        aucMat = np.zeros((88, 5))
         for j in range(5):
             expMode = switchLists[1][j]
             myKey = (regionMode, expMode, regMode)
@@ -520,8 +596,8 @@ axs[3].legend(handles=legend_elements)
 #leg.legendHandles[1].set_color('lightblue')
 
 plt.show()
-figFile = plotFolder + 'Segway_logisticRegression_self.pdf'
-figFile = plotFolder + 'Chrom_logisticRegression_self.pdf'
+figFile = plotFolder + 'Segway_logisticRegression_self_v02.pdf'
+figFile = plotFolder + 'Chrom_logisticRegression_self_v02.pdf'
 print(figFile)
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
@@ -600,11 +676,11 @@ for key in modelKeyList: #for each of the 20 keys:
         else:
             labelExpMat = transPromoMat['promoter']
         
-        sib = labelExpMat.sum(axis = 1)
-        filterGene = sib > 0 # genes that are present in the annotation
+        #sib = labelExpMat.sum(axis = 1)
+        #filterGene = sib > 0 # genes that are present in the annotation
 
         expArray = np.asarray([expression[x] for x in geneIDList]) # genes in the transcriptomic data that are in the gene map file
-        filterExp = expArray[filterGene,] # from these, we filter for those that have annotation
+        filterExp = expArray[geneFilter,] # from these, we filter for those that have annotation
 
         # 2. The expression filter switch mechanism, it has 5 switches 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -616,7 +692,7 @@ for key in modelKeyList: #for each of the 20 keys:
         if expMode == 1: # default
             notExp = filterExp == 0
                 
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             
         # >>>>> 2.2 Switch 2
         expValues = filterExp[filterExp > 0]
@@ -629,7 +705,7 @@ for key in modelKeyList: #for each of the 20 keys:
             
             notExp = filterExp == 0
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
             filterExpMat = filFilExpMat
 
@@ -642,7 +718,7 @@ for key in modelKeyList: #for each of the 20 keys:
             
             notExp = filterExp == 0
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
             filterExpMat = filFilExpMat
 
@@ -651,14 +727,14 @@ for key in modelKeyList: #for each of the 20 keys:
             q10 = np.quantile(expValues, .1)
             notExp = filterExp < q10
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
         # >>>>> 2.5 Switch 5
         if expMode == 5: # 15% low expressed considered zero expressed
             q15 = np.quantile(expValues, .15)
             notExp = filterExp < q15
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
         sumExp = filterExpMat.sum(axis = 1)
         filterExpMat = filterExpMat/sumExp[:,None] # normalizing the coverage to get ratio of the coverage by the labe
@@ -743,11 +819,11 @@ for key in modelKeyList: #for each of the 20 keys:
         else:
             labelExpMat = transPromoMat['promoter']
         
-        sib = labelExpMat.sum(axis = 1)
-        filterGene = sib > 0 # genes that are present in the annotation
+        #sib = labelExpMat.sum(axis = 1)
+        #filterGene = sib > 0 # genes that are present in the annotation
 
         expArray = np.asarray([expression[x] for x in geneIDList]) # genes in the transcriptomic data that are in the gene map file
-        filterExp = expArray[filterGene,] # from these, we filter for those that have annotation
+        filterExp = expArray[geneFilter,] # from these, we filter for those that have annotation
 
         # 2. The expression filter switch mechanism, it has 5 switches 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -759,7 +835,7 @@ for key in modelKeyList: #for each of the 20 keys:
         if expMode == 1: # default
             notExp = filterExp == 0
                 
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
         # >>>>> 2.2 Switch 2
         expValues = filterExp[filterExp > 0]
@@ -772,7 +848,7 @@ for key in modelKeyList: #for each of the 20 keys:
             
             notExp = filterExp == 0
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
             filterExpMat = filFilExpMat
 
@@ -785,7 +861,7 @@ for key in modelKeyList: #for each of the 20 keys:
             
             notExp = filterExp == 0
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
             filFilExpMat = filterExpMat[filterForLowExp, :]## >>>>> filter for low Exp
             filterExpMat = filFilExpMat
 
@@ -794,14 +870,14 @@ for key in modelKeyList: #for each of the 20 keys:
             q10 = np.quantile(expValues, .1)
             notExp = filterExp < q10
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
         # >>>>> 2.5 Switch 5
         if expMode == 5: # 15% low expressed considered zero expressed
             q15 = np.quantile(expValues, .15)
             notExp = filterExp < q15
             
-            filterExpMat = labelExpMat[filterGene, :] # now filtering the labelExpMat for genes that have annotation
+            filterExpMat = labelExpMat[geneFilter, :] # now filtering the labelExpMat for genes that have annotation
 
         sumExp = filterExpMat.sum(axis = 1)
         filterExpMat = filterExpMat/sumExp[:,None] # normalizing the coverage to get ratio of the coverage by the labe
@@ -1275,6 +1351,52 @@ plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
 
 
+########################################
+# 6. supplement table: list of Segway accession and transcriptomic accession
+########################################
+
+suppTable01 = dataFolder + 'segway_transcription.tsv'
+with open(suppTable01, 'w') as f:
+    f.write('Accession_SegwayAnnotation\tAccession_RNAseq\n')
+    for accession in accessionList:
+    
+        if accession in list(aucs.keys()):
+            annotation = allMeta[accession]
+        
+            annotationFolder = annotation['folder']
+
+            # 0.2 get the expression data
+            # >>>>>>>>>>>>>>>>>>>>>>>>>>
+            if len(annotation['RNAseqFile'][0]) > 1:
+                RNAFile = annotation['RNAseqFile'][0]
+                print(RNAFile)
+            else:
+                RNAFile = annotation['RNAseqFile']
+                print(RNAFile)
+
+            expAccession = RNAFile[-15:-4]
+
+            f.write('%s\t%s\n' %(accession, expAccession))
+
+########################################
+# 7. supplement table: list of Segway accession and transcriptomic accession
+########################################
+
+suppTable03 = dataFolder + 'segway_chrom.tsv'
+with open(suppTable03, 'w') as f:
+    f.write('Accession_SegwayAnnotation\tAccession_chromHMM\n')
+    for accession in accessionList:
+
+        annotation = allMeta[accession]
+        chromFile = annotation['chromFile']
+        if chromFile.endswith('.gz'):
+            chromAccession = chromFile[-18:-7]
+            print(chromAccession)
+        else:
+            chromAccession = chromFile[-15:-4]
+            print(chromAccession)
+
+        f.write('%s\t%s\n' %(accession, chromAccession))
 
 
 
