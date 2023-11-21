@@ -326,10 +326,11 @@ chrList = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9
 W = 300
 annotMat = np.zeros((234, W))
 scor = 44900796 # chr19 44905796..44909393 APOE
-scor = 234040702 # SPP2, Chr2, 30000
+#scor = 234040702 # SPP2, Chr2, 30000
+scor = 234050679 - 10000 # SPP2, Chr2, 30000
 scor = 24280190 # chr7
 scor = 72772659 # chr15
-regionChr = 'chr19' # 'chr15'
+regionChr = 'chr2' # 'chr15'
 regionChrInd = chrList.index(regionChr)
 # for each of the accessions
 for accession in accessionList:
@@ -431,7 +432,8 @@ for accession in accessionList:
 # book = np.delete(annotMat, 205, 0) # not needed if filtered at accessionList
 annotMat = annotMat[0:234, :]
 print(annotMat.shape)
-outputFileName = 'annotationMap234Cells_chr19_APOE.pkl'
+#outputFileName = 'annotationMap234Cells_chr19_APOE.pkl'
+outputFileName = 'annotationMap234Cells_chr2_SPP2.pkl'
 outputFile = dataFolder + outputFileName
 with open(outputFile, 'wb') as f:
     pickle.dump(annotMat, f)
@@ -442,6 +444,11 @@ inputFile = dataFolder + inputFileName
 with open(inputFile, 'rb') as f:
     annotMat = pickle.load(f)
 
+#inputFileName = 'annotationMap234Cells_chr15.pkl'
+inputFileName = 'annotationMap234Cells_chr2_SPP2.pkl'
+inputFile = dataFolder + inputFileName
+with open(inputFile, 'rb') as f:
+    annotMat = pickle.load(f)
 
 sns.heatmap(annotMat)
 plt.show()
@@ -491,7 +498,6 @@ sibplus = np.copy(sib)
 for i,label in reversed(list(enumerate(label_order))):
     book = np.where(sib == label)
     sibplus[book] = i
-
 
 df = pd.DataFrame(annotMat)
 
