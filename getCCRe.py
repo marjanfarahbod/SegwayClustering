@@ -100,7 +100,7 @@ for accession in annotations_IDlist:
 
                 annot_fileList = annot_json['files']
                 
-                donor_age = segway_donor_age
+                # donor_age = segway_donor_age
 
                 # get the file with the right version
 

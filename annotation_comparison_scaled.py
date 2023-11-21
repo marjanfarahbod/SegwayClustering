@@ -41,7 +41,8 @@ geneList = geneListsAndIDs[0]
 geneIDList = geneListsAndIDs[1]
 del geneListsAndIDs
 
-segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence']
+# segwayLabels = ['Quiescent', 'ConstitutiveHet', 'FacultativeHet', 'Transcribed', 'Promoter', 'Enhancer', 'RegPermissive', 'Bivalent', 'LowConfidence'] # obsolete
+segwayLabels = ['Enhancer', 'EnhancerLow', 'Promoter', 'PromoterFlanking', 'Transcribed', 'CTCF', 'K9K36', 'Bivalent', 'FacultativeHet', 'ConstitutiveHet', 'Quiescent']    
 
 '''
 Active TSS
@@ -67,10 +68,7 @@ Quiescent/Low
 book =  'EnhA1 EnhA2 EnhBiv EnhG1 EnhG2 EnhWk Het Quies ReprPC ReprPCWk TssA TssBiv TssFlnk TssFlnkD TssFlnkU Tx TxWk ZNF/Rpts'
 chromLabels = book.split()
 
-# get the list of subfolders
-
 # list of annotation folders
-
 inputFile = dataFolder + dataSubFolder + 'metaInfo.pkl'
 with open(inputFile, 'rb') as pickledFile:
     annMeta = pickle.load(pickledFile)
@@ -87,7 +85,6 @@ chrom_list = chroms.split()
 ########################################
 # 1. Unzip and sort the chmm files for each sample
 ########################################
-
 
 # a dictionary of sampleFolder and sorted chmm file
 chmmFile_dict = {}

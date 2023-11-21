@@ -351,7 +351,6 @@ for accession in accessionList[206:]:
                 term = line.strip().split()[1]
                 label_term_mapping[label] = term
         labelCount = len(label_term_mapping)
-
         
         # get the sorting index for the labels
         sortIndex = []
@@ -360,7 +359,6 @@ for accession in accessionList[206:]:
                 thisTerm = label_term_mapping[str(i)]
                 if thisTerm == state:
                     sortIndex.append(i)
-
 
         with open(geneFile, 'rb') as file:
             geneMat = pickle.load(file)

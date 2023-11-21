@@ -233,7 +233,6 @@ for i in inds:
                     if file['assembly'] == 'GRCh38' and file['file_type'] == 'bed bed9':
                         file_accession = file['accession']
 
-                    
                         downloadURL = 'https://www.encodeproject.org/files/%s/@@download/%s.bed.gz' %(file_accession, file_accession)
 
                         bedFileName = downloadURL.split('/')[-1]

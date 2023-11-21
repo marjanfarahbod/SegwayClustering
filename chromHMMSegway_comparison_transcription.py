@@ -10,9 +10,12 @@
 # do this for both chromhmm and segway. hahaha.
 
 # 0. Initials
+# 0.0 The function for extracting data - Segway
+# 0.1 The function for extracting data - chromhmm
 # 1. Segway data extraction
 # 2. CHromHMM data extraction
 # 3. The AUC curve for genes which were included
+# 4. get the AUC plot
 
 # 0. Initials 
 ########################################
@@ -63,6 +66,7 @@ print(annAccession)
 
 # do this for both chromhmm and segway. hahaha.
 # 0. The function
+
 # 1. Segway data extraction
 # 2. CHromHMM data extraction
 
@@ -1287,6 +1291,7 @@ outputFile = dataFolder + dataSubFolder + 'geneAndPromoterAUCs_chrom.pkl'
 with open(outputFile, 'wb') as f:
     pickle.dump(aucs, f)
 
+########################################    
 # 4. get the AUC plot
 ########################################
 

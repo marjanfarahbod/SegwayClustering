@@ -2,8 +2,8 @@
 ### sections ###
 #
 # 0. Initials
-# 1. Get chr19 files
-# 2. First region analyses (obsolete)
+# 1. Get chr19 files 
+# 2. First region analyses (obsolete, the whole section 2)
 # 2.1 Getting the regions
 # 2.2 Exploratory analyses for the region
 # 3. [second region analysis] Chr vector, adding all the samples and some analyses there
@@ -12,7 +12,8 @@
 # 3.3 coverage and coverage of the overlap for each label
 # 3.4 Examining the odd labels: labels with small overlap with others
 # 4. peak identification
-# 5. Peak label examination 
+# 5. Peak label examination
+
 
 #########################################
 # 0. Initials
@@ -61,7 +62,6 @@ print(index)
 #coverage = np.zeros((max_region_count, int(region_length/10)+40))
 # create the en file
 for annAccession in annAccessionList:
-
     sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
     print(sampleFolderAdd)
 
@@ -75,17 +75,17 @@ for annAccession in annAccessionList:
 
     # load the mnomics, and extract the enhancer labels for mnemonics
     label_term_mapping = {}
-    mnemonics_file = sampleFolderAdd + 'mnemonics_v02.txt'
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
     with open(mnemonics_file, 'r') as mnemonics:
         for line in mnemonics:
-            #print(line)
+            print(line)
             label = line.strip().split()[0]
             term = line.strip().split()[1]
             label_term_mapping[label] = term
 
     enLabels = []
     for label in label_term_mapping.keys():
-        if 'Enhancer' in label_term_mapping[label]:
+        if 'Enhancer' == label_term_mapping[label]:
             enLabels.append(label)
 
     one_digit_label = []
@@ -96,6 +96,7 @@ for annAccession in annAccessionList:
         else:
             one_digit_label.append(label)
 
+    # making the label string for the label
     label_string = ''
     if len(one_digit_label)>0:
         label_string = label_string + '['
@@ -117,8 +118,8 @@ for annAccession in annAccessionList:
 
     command = "grep -E 'chr19.*\\t(%s)_\' %s" %(label_string, segwayFile[0:-3])
     print(command)
-    print(counter)
-    out = sampleFolderAdd + 'chr19_enh.bed'
+    
+    out = sampleFolderAdd + 'chr19_enhOnly.bed'
     f = open(out, 'w')
     subprocess.run(command, shell=True, stdout=f)
 
@@ -465,7 +466,7 @@ plt.show()
 # 3. Chr vector, adding all the samples and some analyses there
 #########################################
 
-# 3.1 adding all the smaples, geting the count of reg for each sample
+# 3.1 adding all the smaples, getting the count of reg for each sample
 ########################################
 
 # 58597100
@@ -478,6 +479,14 @@ chr_coverage = np.zeros(chr_length)
 max_ind = 0
 seg_end = 0
 # do the analysis
+sampleCoverage = np.zeros(len(annAccessionList)) # what percent is covered by the label for each sample
+sampleMax = np.zeros(len(annAccessionList)) # what is the max length for ecah sample
+sumHighCount = np.zeros(len(annAccessionList)) # sum of all labels greater than 2000 (20)
+sumHighCount2x = np.zeros(len(annAccessionList)) # sum of all labels greater than 2000 (20)
+disGreaterThan100 = np.zeros(len(annAccessionList)) # sum of all labels greater than 2000 (20)
+prev_end = 10
+disGreaterThan100_coverage = np.zeros(len(annAccessionList)) # sum of all labels greater than 2000 (20)
+maxDists = np.zeros(len(annAccessionList)) # max dists for each sample
 for annAccession in annAccessionList:
 
     sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
@@ -489,7 +498,7 @@ for annAccession in annAccessionList:
     if(seg_end > max_ind):
         max_ind = seg_end
 
-    out = sampleFolderAdd + 'chr19_enh.bed'
+    out = sampleFolderAdd + 'chr19_enhOnly.bed'
     with open(out, 'r') as enFile:
         #line = enFile.readline()
         #print(line)
@@ -501,20 +510,38 @@ for annAccession in annAccessionList:
             fields = line.split()
             seg_start = int(fields[1][0:-2])
             seg_end = int(fields[2][0:-2])-1
+            seg_length = seg_end - seg_start 
             chr_coverage[seg_start:seg_end] += 1
+            sampleCoverage[index] += seg_length
+            if sampleMax[index] < seg_length:
+                sampleMax[index] = seg_length
+            if seg_length > 20:
+                sumHighCount[index] +=1
+            if seg_length > 40:
+                sumHighCount2x[index] +=1
 
+            if seg_start - prev_end >= 200:
+                disGreaterThan100[index] +=1
+                disGreaterThan100_coverage[index] += seg_start-prev_end-200
+                if (seg_start-prev_end) > maxDists[index]:
+                    maxDists[index] = seg_start-prev_end
+                
+            prev_end = seg_end
 
 if(seg_end > max_ind):
     max_ind = seg_end
 
 chr_coverage = chr_coverage[0:max_ind]
+enhRatio = sampleCoverage/len(chr_coverage)
+
+# plot the sorted ratio 
 
 # 3.2 coverage for count of repeats throught the chromosome
 ######################################### 
 # what percentage is zero?
 print(sum(chr_coverage == 0)/max_ind)
 
-# what percentage is one, or two:
+# what percentage is one, two or zero:
 print(sum(chr_coverage < 3)/max_ind)
 
 coverage_count = np.zeros(sample_count) 
@@ -530,7 +557,7 @@ for i in range(sample_count):
 cc_cum_sum = np.cumsum(coverage_count)
 cr_cum_sum = np.cumsum(coverage_ratio)
 import matplotlib.pyplot as plt
-plt.plot(coverage_ratio)
+plt.plot(coverage_ratio[1:])
 plt.plot(cr_cum_sum)
 plt.plot([14, 14], [cr_cum_sum[14], cr_cum_sum[0]], 'k-', linewidth = .5)
 plt.plot([0, 14], [cr_cum_sum[14], cr_cum_sum[14]], 'k-', linewidth = .5)
@@ -541,7 +568,6 @@ plt.xlabel('overlap count')
 plt.ylabel('chr19 coverage')
 
 plt.show()
-
 
 # 3.3 coverage and coverage of the overlap for each label
 ########################################
@@ -897,6 +923,70 @@ for i in kado[0]:
 # TODO: prune the odd labels based on the coverage
 
 # contribution of each label to the low coverage regions (can we detect off labels, or off samples, or all that is hapening there is just expected distribution)
+
+# 3.3 what is the count of individual enhancer events, and what is the distribution of distance between them
+################################################################################
+
+dis_dist = np.zeros(len(chr_coverage))
+dis_enh = np.zeros(len(chr_coverage))
+dist_counter = 0
+enh_counter = 0
+dist_length = 0
+enh_length = 0
+currentState = chr_coverage[0]
+for i in range(1,len(chr_coverage)):
+    previousState = currentState
+    currentState = chr_coverage[i]
+    if previousState == 0 and currentState > 0: # getting out of distance
+        dis_dist[dist_counter] = dist_length
+        dist_counter +=1
+        dist_length = 0 # reset
+    if currentState == 0: # in the distance
+        dist_length +=1
+
+    if previousState > 0 and currentState == 0: # getting out of enhancer
+        dis_enh[enh_counter] = enh_length
+        enh_counter +=1
+        enh_length = 0
+    if currentState > 0:
+        enh_length +=1
+
+dis_dist = np.sort(dis_dist[0:dist_counter])
+dis_enh = np.sort(dis_enh[0:enh_counter])
+
+fig, ax = plt.subplots()
+plt.scatter(np.log10(dis_dist[1:]), np.log10(dis_enh))
+plt.xticks(fontsize=10)
+plt.yticks(fontsize=10)
+plt.xlim(-.5,5)
+plt.ylim(-.5,5)
+plt.show()
+
+dist_qq = np.quantile(np.log10(dis_dist), np.linspace(0,1, 100))
+enh_qq = np.quantile(np.log10(dis_enh), np.linspace(0,1, 100))
+
+book = np.sort(dis_enh)
+book = np.sort(np.log(dis_dist))
+
+import matplotlib.pyplot as plt
+plt.scatter(range(len(book)), book, alpha=.3, s=8)
+plt.xticks(fontsize=10)
+plt.yticks(fontsize=10)
+
+plt.show()
+
+fig, ax = plt.subplots()
+ax.scatter(dist_qq, enh_qq)
+plt.xticks(fontsize=10)
+plt.yticks(fontsize=10)
+
+ax.set_xlabel('x-axis', fontsize = 12)
+ax.set_ylabel('y-axis', fontsize = 10)
+
+fig, ax = plt.subplots()
+ax.scatter(np.log10(dis_enh), range(len(dis_enh)), alpha=.3, s=8)
+  
+plt.show()
 
 ########################################
 # 4. peak identification

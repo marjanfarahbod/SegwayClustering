@@ -932,7 +932,7 @@ plt.show()
 
 fig, axs = plt.subplots(3, 2, figsize=(10,14))
 
-s1= sns.heatmap(dellclust2[0:28, 0:28], annot=True, cmap='Paired', ax=axs[0,0])
+s1= sns.heatmap(dellclust2[0:28, 0:28], cmap='Paired', ax=axs[0,0])
 s1.set_title('cluster ID for the best match label')
 #sns.heatmap(labelCluster[0:30, 0:30], annot=True, cmap='Paired', ax=axs[1])
 s2=sns.heatmap(dellc2[0:28, 0:28], cmap=cmap, ax=axs[0,1])

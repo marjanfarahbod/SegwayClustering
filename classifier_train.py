@@ -381,7 +381,8 @@ for i in range(len(model_labels_extended_array)):
     test_labels.append(label)
 
 segwayLabels = ['Bivalent', 'ConstitutiveHet', 'EnhancerLow', 'FacultativeHet', 'Transcribed', 'Unclassified', 'CTCF', 'Enhancer', 'Promoter', 'K9K36', 'Quiescent', 'PromoterFlanking']    
-segwayLabels_order = [7,2 ,8, 11, 4, 9, 6, 0, 1, 3, 10]
+#segwayLabels_order = [7,2 ,8, 11, 4, 9, 6, 0, 1, 3, 10]
+segwayLabels_order = [8, 11, 7, 2, 0, 6, 4, 9, 3, 1, 10]
 segwayLabels_reorder = [segwayLabels[i] for i in segwayLabels_order]
 Accuracy = accuracy_score(model_labels_extended, test_labels)
 print(Accuracy)
@@ -417,6 +418,11 @@ print(Accuracy)
 model_file = runFolder + "run03/model_300_reg.020_auc0.89.pickleV04.gz"
 with gzip.open(model_file, "wb") as f:
     pickle.dump(model, f)
+
+
+model_file = runFolder + "run03/model_300_reg.020_auc0.89V04.pickle.gz"
+with gzip.open(model_file, "rb") as f:
+    model = pickle.load(f)
 
 
 #########################################
