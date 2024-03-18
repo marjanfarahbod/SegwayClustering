@@ -330,7 +330,25 @@ scor = 44900796 # chr19 44905796..44909393 APOE
 scor = 234050679 - 10000 # SPP2, Chr2, 30000
 scor = 24280190 # chr7
 scor = 72772659 # chr15
-regionChr = 'chr2' # 'chr15'
+
+# TODO: make this a function, get a few more and run them. 
+
+gid = 'ENSG00000077522.12' # ACTN2
+gid = 'ENSG00000114854.7' # TNNC1
+gid = 'ENSG00000131730.15' # CKMT2
+print(geneList[gid])
+#gidc = int(geneList[gid].start + ((geneList[gid].end - geneList[gid].start)/2))
+gidc = geneList[gid].start - 15000 # if the strand was negative, this would be the end of the gene minus 15000 (we want to catch the promoter)
+gidc = geneList[gid].end - 15000 # if the strand was negative, this would be the end of the gene minus 15000 (we want to catch the promoter)
+scor = gidc # starting coordinate of the region
+print(geneList[gid].chrom) # 'chr15'
+print(scor)
+
+W = 300
+annotMat = np.zeros((234, W))
+
+#regionChr = 'chr2' # 'chr15'
+regionChr = (geneList[gid].chrom) # 'chr15'
 regionChrInd = chrList.index(regionChr)
 # for each of the accessions
 for accession in accessionList:
@@ -376,7 +394,7 @@ for accession in accessionList:
             lineInd = int(slineInd + ((elineInd-slineInd)/2))
             line = linecache.getline(annFile, lineInd)
             chr = line.split()[0]
-            print(chr)
+            #print(chr)
         else:
             if chrList.index(chr) > regionChrInd:
                 elineInd = lineInd
@@ -400,7 +418,9 @@ for accession in accessionList:
                 line = linecache.getline(annFile, lineInd)
                 sind = int(line.split()[1])
                 eind = int(line.split()[2])
-            
+
+    print(sind)
+    print(scor)
 
     walker = 0
     steps = int((eind - scor)/100)
@@ -408,27 +428,33 @@ for accession in accessionList:
     colorInd = segwayStates.index(color)
     annotMat[a, walker:walker+steps-1] = colorInd
     walker += steps
-    print(steps)
+    #print(steps)
     while walker < W:
-        print(line)
-        print(steps)
+        #print(line)
+        #print(steps)
         lineInd +=1
-        print(walker)
-        print(color)
+        #print(walker)
+        #print(color)
         line = linecache.getline(annFile, lineInd)
         sind = int(line.split()[1])
         eind = int(line.split()[2])
         steps = min(int((eind-sind)/100), W-walker)
         color = label_term_mapping[line.split()[3].split('_')[0]]
         colorInd = segwayStates.index(color)
-        print(colorInd)
+        #print(colorInd)
         annotMat[a, walker:walker+steps] = colorInd
         walker += steps
         
     linecache.clearcache()
     os.system('gzip %s' %(annFile))
 
-    
+
+print(annotMat.shape)
+outputFileName = 'annotationMap234Cells_CKMT2.pkl'
+outputFile = dataFolder + outputFileName
+with open(outputFile, 'wb') as f:
+    pickle.dump(annotMat, f)
+
 # book = np.delete(annotMat, 205, 0) # not needed if filtered at accessionList
 annotMat = annotMat[0:234, :]
 print(annotMat.shape)
@@ -486,7 +512,6 @@ colorList = []
 for color in mycolors:
     colorList.append(np.array(color)/256)
 
-
 import matplotlib.colors as colors
 cmap = colors.ListedColormap(colorList)
 boundaries = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -506,8 +531,9 @@ rowInds = sib.dendrogram_row.reordered_ind
 
 sns.heatmap(annotMat[rowInds,:], cmap=cmap, norm=norm)
 plt.show()
+plt.close('all')
 print(figFile)
-figFile = plotFolder + figureFolder + 'annotMat_chr7.pdf'
+figFile = plotFolder + 'annotMat_TNNC1_scor%d.pdf' %(scor)
 plt.savefig(figFile)
 plt.close('all')
 plt.show()
