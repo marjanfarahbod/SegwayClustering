@@ -4,7 +4,10 @@ The repository includes code for the paper titled "Integrative chromatin state a
 preprint: https://www.biorxiv.org/content/10.1101/2023.10.26.564254v1
 list of annotations: https://www.encodeproject.org/carts/segway-chromatin-states/
 
-see the file ENCODE_code_documentation_.pdf for details
+
+For full pipeline details, see the PDF:  
+[ENCODE_code_documentation_.pdf](./ENCODE_code_documentation_.pdf)
+
 
 ### The GTF file used for gene coordinates
 
