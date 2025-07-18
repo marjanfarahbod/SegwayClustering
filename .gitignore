@@ -1,0 +1,13 @@
+# ignore all the emacs files
+*~
+
+# ignore the files with hashtag
+*#
+.#*
+
+# ignore the files in this repository
+interpretation/
+allInterpretation/
+
+# text files
+*.txt
