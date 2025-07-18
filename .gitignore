@@ -11,3 +11,5 @@ allInterpretation/
 
 # text files
 *.txt
+/interpretation_improvements/
+/classifierQC/
