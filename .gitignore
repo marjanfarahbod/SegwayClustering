@@ -1,6 +1,8 @@
 # ignore all the emacs files
 *~
 
+.DS_Store
+
 # ignore the files with hashtag
 *#
 .#*
