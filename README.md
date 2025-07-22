@@ -6,7 +6,7 @@ list of annotations: https://www.encodeproject.org/carts/segway-chromatin-states
 
 
 For full pipeline details, see the PDF:  
-[ENCODE_code_documentation_.pdf](./ENCODE_code_documentation_.pdf)
+[ENCODE_code_documentation_Summ.pdf](./ENCODE_code_documentation_Summ.pdf)
 
 
 
