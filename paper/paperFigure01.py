@@ -7,6 +7,7 @@
 # *. the big fat genome regional plot
 # *. The prediction some sort of filtering?
 # *. The other tracks bar thing plot
+# *. the sample feature plot - average 
 
 #
 #########################################
@@ -53,6 +54,7 @@ sampleCount = len(allMeta)
 trackMat = np.zeros((sampleCount, trackCount))
 
 accessionList = list(allMeta.keys())
+accessionList.remove(accessionList[205])
 
 for i,accession in enumerate(accessionList):
 
@@ -82,6 +84,7 @@ sortedTrackMat = trackMat[sortedInds,:]
 cmap = sns.color_palette("rocket_r", as_cmap=True)
  
 sns.heatmap(sortedTrackMat, xticklabels=trackList, cmap=cmap)
+plt.show()
 
 plotFolder_add = plotFolder + figureFolder
 figFile = plotFolder_add + 'heatmap_tracksForSamples.pdf'
@@ -89,6 +92,274 @@ print(figFile)
 plt.tight_layout()
 plt.savefig(figFile)
 plt.close('all')
+
+########################################
+# 1.1 The heatmap for assay and track presence 
+########################################
+
+# getting the matrix of track and states
+trackStateMat = np.zeros((sampleCount, trackCount + segwayStateCount))
+
+for i,accession in enumerate(accessionList):
+
+    print(accession)
+    print(i)
+    annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
+
+    # get the track file
+    assay_file = annotationFolder + 'trackname_assay.txt'
+    with open(assay_file, 'r') as assays:
+        for line in assays:
+            assay = line.strip().split()[1]
+            if assay in trackList:
+                index = trackList.index(assay)
+                trackStateMat[i, index] = 1
+
+
+    termLabel_mapping = {}
+    mnemonics_file = annotationFolder + 'mnemonics_v04.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            #print(line)
+            term = line.strip().split()[1]
+            index = segwayStates.index(term) + trackCount
+            trackStateMat[i, index] = 1
+
+
+sns.heatmap(trackStateMat)
+plt.show()
+
+sortedTrackStateMat = trackStateMat[sortedInds,:]
+cmap = sns.color_palette("rocket_r", as_cmap=True)
+
+labels = trackList + segwayStates
+sns.heatmap(sortedTrackStateMat, xticklabels=labels, cmap=cmap)
+plt.show()
+
+
+# 1.1.1 Sorting and plotting just the presence
+########################################
+book = np.sum(trackStateMat, axis=0)
+kado = np.sum(trackStateMat[:, 0:11], axis=1)
+
+sortedInds = np.argsort(kado)[::-1]
+
+sortedTrackStateMat = trackStateMat[sortedInds,:]
+cmap = sns.color_palette("rocket_r", as_cmap=True)
+
+plt.figure(figsize=(10, 8))
+labels = trackList + segwayStates
+sns.heatmap(sortedTrackStateMat, xticklabels=labels, cmap=cmap)
+plt.xlabel('Features')
+plt.ylabel('Samples (clustered)')
+#plt.title('Clustered Binary Matrix')
+
+plt.tight_layout()
+figFile = plotFolder + 'label_assay_sorted.pdf'
+plt.savefig(figFile)
+plt.close('all')
+plt.show()
+
+
+# 1.1.2 Kmeans clustering based on 5 tracks
+########################################
+matSelected = sortedTrackStateMat[:, 6:]
+sns.heatmap(matSelected, cmap=cmap)
+plt.show()
+
+
+from sklearn.cluster import KMeans
+
+n_clusters = 4  # Or any number of clusters you want
+kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+Clabels = kmeans.fit_predict(matSelected)
+sorted_idx = np.argsort(Clabels)
+sorted_data = matSelected[sorted_idx]
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(sorted_data, xticklabels=labels[6:], cmap='binary', cbar=False)
+plt.xlabel('Features')
+plt.ylabel('Samples (clustered)')
+plt.title('Clustered Binary Matrix')
+
+plt.tight_layout()
+figFile = plotFolder + 'label_assay_clustering.pdf'
+plt.savefig(figFile)
+plt.close('all')
+plt.show()
+
+# 1.1.3 Hierarchical clustering
+########################################
+from scipy.cluster.hierarchy import linkage, dendrogram
+import matplotlib.pyplot as plt
+
+# Use 'euclidean', 'hamming', or 'jaccard' for binary data (try what fits best)
+#Z = linkage(matSelected, method='ward')  # 'ward' is common for continuous; 'average' with 'hamming' distance is common for binary
+Z = linkage(matSelected, method='average', metric='hamming')
+
+# the dendrogram
+plt.figure(figsize=(15, 5))
+dendrogram(Z, leaf_rotation=90, leaf_font_size=6)
+plt.title('Hierarchical Clustering Dendrogram')
+plt.xlabel('Sample index')
+plt.ylabel('Distance')
+plt.show()
+
+
+# the clustering plot
+from scipy.cluster.hierarchy import fcluster
+
+max_d = 1.0  # Set according to the dendrogram
+#labels = fcluster(Z, t=max_d, criterion='distance')
+labels = fcluster(Z, t=6, criterion='maxclust')
+
+# Sort by cluster labels
+
+sorted_idx = np.argsort(labels)
+sorted_data = matSelected[sorted_idx]
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(sorted_data, cmap='binary', cbar=False)
+plt.xlabel('Features')
+plt.ylabel('Samples (clustered)')
+plt.title('Hierarchically Clustered Matrix')
+plt.show()
+
+plt.tight_layout()
+figFile = plotFolder + 'assay_label_corrplot.pdf'
+plt.savefig(figFile)
+plt.close('all')
+
+# 1.1.4 Corerlation
+########################################
+corr_matrix = np.corrcoef(sortedTrackStateMat, rowvar=False)
+
+sns.heatmap(corr_matrix)
+plt.show()
+
+from scipy.stats import pearsonr
+
+corr_matrix = np.zeros(np.shape(corr_matrix))
+pval_matrix = np.zeros(np.shape(corr_matrix))
+
+for i in range(np.shape(corr_matrix)[0]):
+    for j in range(np.shape(corr_matrix)[0]):
+        corr, pval = pearsonr(sortedTrackStateMat[:, i], sortedTrackStateMat[:, j])
+        corr_matrix[i, j] = corr
+        pval_matrix[i, j] = pval
+
+sns.heatmap(corr_matrix)
+plt.show()
+
+sns.heatmap(corr_matrix[6:11, 11:], xticklabels=labels[11:], yticklabels=labels[6:11])
+plt.show()
+
+sns.heatmap(pval_matrix[6:11, 11:], xticklabels=labels[11:], yticklabels=labels[6:11])
+plt.show()
+
+fig, axes = plt.subplots(1,2, figsize=(10, 4))  # 1 row, 2 columns
+
+sns.heatmap(corr_matrix[6:11, 11:], xticklabels=labels[11:], yticklabels=labels[6:11], ax=axes[0])
+axes[0].set_title('correlation')
+
+mypval = pval_matrix[6:11, 11:]
+conditions = [
+    mypval < 0.01,
+    (mypval >= 0.01) & (mypval < 0.05),
+    mypval >= 0.05
+]
+
+# Define the corresponding values
+choices = [0.01, 0.05, .1]
+
+# Apply np.select
+result = np.select(conditions, choices)
+
+sns.heatmap(result, xticklabels=labels[11:], yticklabels=labels[6:11], ax=axes[1], cmap='viridis')
+axes[1].set_title('pvalues')
+
+plt.tight_layout()
+figFile = plotFolder + 'assay_label_corrplot.pdf'
+plt.savefig(figFile)
+plt.close('all')
+plt.show()
+
+plotFolder_add = plotFolder + figureFolder
+#figFile = plotFolder_add + 'heatmap_tracksForSamples.pdf'
+print(figFile)
+plt.tight_layout()
+#plt.savefig(figFile)
+plt.close('all')
+
+
+
+import matplotlib.colors as mcolors
+
+
+# 1. Define a yellow→white→dark-blue colormap
+cmap = mcolors.LinearSegmentedColormap.from_list(
+    "owb",      # name
+    ["orange", "white", "darkblue"]  # color list
+)
+
+# 1. Define a yellow→white→dark-blue colormap
+cmap = mcolors.LinearSegmentedColormap.from_list(
+    "wrb",      # name
+    ["white", "red", "black"]  # color list
+)
+
+
+plotMat = corr_matrix[6:11, 11:]
+# 2. Create a norm that centers at 0, spanning -1…1
+norm = mcolors.TwoSlopeNorm(vmin=-plotMat.max(), vcenter=0.0, vmax=plotMat.max())
+norm = mcolors.TwoSlopeNorm(vmin=plotMat.min(), vcenter=0.0, vmax=plotMat.max())
+
+fig, ax = plt.subplots(figsize=(6, 6))  # width=12, height=3
+
+# 3. Plot with sns.heatmap, passing cmap and norm
+sns.heatmap(
+    corr_matrix[6:11, 11:],
+    xticklabels=labels[11:],
+    yticklabels=labels[6:11],
+    cmap=cmap,
+    norm=norm,
+    cbar_kws={"label": "Correlation"},  # optional: label your colorbar
+    ax=ax
+)
+
+ax.tick_params(axis='y', rotation=90)
+
+
+plt.title("Pearson correlation between label and track presence")
+plt.tight_layout()
+figFile = plotFolder + 'label_track_corr_zeroCentered.pdf'
+plt.tight_layout()
+plt.savefig(figFile)
+plt.close('all')
+plt.show()
+
+
+
+fig, ax = plt.subplots(figsize=(7, 3))  # width=12, height=3
+
+# 3. Plot with annotations turned on
+sns.heatmap(
+    corr_matrix[6:11, 11:],
+    xticklabels=labels[11:],
+    yticklabels=labels[6:11],
+    cmap=cmap,
+    norm=norm,
+    annot=True,        # show values in cells
+    fmt=".2f",         # two decimal places
+    cbar_kws={"label": "Correlation"},
+    ax=ax
+)
+
+ax.set_title("Centered Diverging Heatmap")
+plt.tight_layout()
+plt.show()
+
 
 ########################################
 # 4. The prediction probabilities, filter

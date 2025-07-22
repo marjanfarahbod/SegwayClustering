@@ -997,6 +997,10 @@ outputFile = dataFolder  + 'enhancerPredictionAUCs_segway_hg20_all.pkl'
 with open(outputFile, 'wb') as f:
     pickle.dump(aucListSegway, f)
 
+inputFile =  dataFolder  + 'enhancerPredictionAUCs_segway_hg20.pkl'
+with open(inputFile, 'rb') as f:
+    enhancerAUCsSeg = pickle.load(f)
+
 aucListChrom = np.zeros(len(enhAccessionList))
 for a, accession in enumerate(enhAccessionList):
 
@@ -1074,10 +1078,22 @@ print(figFile)
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
 
-
 outputFile = dataFolder  + 'enhancerPredictionAUCs_chrom_hg20.pkl' 
 with open(outputFile, 'wb') as f:
     pickle.dump(aucListChrom, f)
+
+inputFile =  dataFolder  + 'enhancerPredictionAUCs_chrom_hg20.pkl'
+with open(inputFile, 'rb') as f:
+    enhancerAUCsChrom = pickle.load(f)
+
+plt.boxplot(enhancerAUCsChrom)
+plt.show()
+
+plt.boxplot(enhancerAUCsSeg)
+plt.show()
+
+
+
 
 mymat = fandf.to_numpy()
 book = mymat[:, 1:]

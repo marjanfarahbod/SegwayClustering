@@ -129,6 +129,76 @@ for annAccession in annAccessionList:
 
     # if it is the first file:
 
+    
+# 1.1 Get chr20 and chr18 files
+#########################################
+
+for annAccession in annAccessionList:
+    sampleFolderAdd = dataFolder + dataSubFolder + annAccession + '/'
+    print(sampleFolderAdd)
+
+    index = accession_index_map[annAccession]
+    print(index)
+
+    # get the .bed file chr19 extract. 
+    originalBedFile = annMeta[annAccession]['bedFile']
+    originalBed_accession = originalBedFile.split('.')[0]
+    segwayFile = dataFolder + dataSubFolder + annAccession + '/' + originalBed_accession + '_filteredSorted.bed.gz'
+
+    # load the mnomics, and extract the enhancer labels for mnemonics
+    label_term_mapping = {}
+    mnemonics_file = sampleFolderAdd + 'mnemonics_v04.txt'
+    with open(mnemonics_file, 'r') as mnemonics:
+        for line in mnemonics:
+            print(line)
+            label = line.strip().split()[0]
+            term = line.strip().split()[1]
+            label_term_mapping[label] = term
+
+    enLabels = []
+    for label in label_term_mapping.keys():
+        if 'Enhancer' == label_term_mapping[label]:
+            enLabels.append(label)
+
+    one_digit_label = []
+    two_digit_label = []
+    for label in enLabels:
+        if len(label) == 2:
+            two_digit_label.append(label)
+        else:
+            one_digit_label.append(label)
+
+    # making the label string for the label
+    label_string = ''
+    if len(one_digit_label)>0:
+        label_string = label_string + '['
+        for label in one_digit_label:
+            label_string = label_string + label
+
+        label_string = label_string + ']'
+        if len(two_digit_label)>0:
+            label_string = label_string + '|'
+
+
+    if len(two_digit_label)>0:
+        for label in two_digit_label:
+            label_string = label_string + '(' + label + ')' + '|'
+        label_string = label_string[0:-1]
+
+    
+    os.system('gunzip %s' %(segwayFile))
+
+    command = "grep -E 'chr18.*\\t(%s)_\' %s" %(label_string, segwayFile[0:-3])
+    print(command)
+    
+    out = sampleFolderAdd + 'chr18_enhOnly.bed'
+    f = open(out, 'w')
+    subprocess.run(command, shell=True, stdout=f)
+
+    os.system('gzip %s' %(segwayFile[0:-3]))
+
+    print('chr18 enhancer regions selected')
+
 
 #########################################
 # 2. First region analyses 

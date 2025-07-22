@@ -602,6 +602,16 @@ print(figFile)
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
 
+# getting the AUCs for pvalues:
+# genes: 
+i = 3 # 1 for genes, 3 for promoter 
+book = aucMats[i]
+segwayGeneAUC = book[:, 0]
+chromGeneAUC = book[:, 0]
+
+from scipy import stats
+stats.ttest_ind(segwayGeneAUC, chromGeneAUC, equal_var=False)
+
 ########################################
 # 5.4 mishmash of models and samples
 ########################################

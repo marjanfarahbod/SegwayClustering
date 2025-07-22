@@ -3,6 +3,7 @@
 # 2. Get the plot that Max asked for
 # 3. Get the table that you have noted (the training data)
 # 4. Get a better Fig01F version
+# 5. Print a list of accession vs tissueList
 
 #########################################
 # 0. Initials
@@ -579,5 +580,22 @@ sns.heatmap(annotMat[rowInds,:], cmap=cmap, norm=norm)
 figFile = plotFolder + 'annotMat_%s_allSample_longRegion_100000_test.pdf' %(geneSymbol)
 plt.savefig(figFile)
 plt.close('all')
-    
+
+# ########################################
+# 5. Print a list of accession vs tissueList
+# ########################################
+
+        label_term_mapping = {}
+        mnemonics_file = annotationFolder + 'mnemonics_v04.txt'
+        with open(mnemonics_file, 'r') as mnemonics:
+            for line in mnemonics:
+                print(line)
+                label = line.strip().split()[0]
+                term = line.strip().split()[1]
+                label_term_mapping[label] = term
+
+tissueFile = dataFolder + 'accession_tissue_info.txt'
+with open(tissueFile, 'w') as outputFile:
+    for i in range(len(accessionList))
+
 

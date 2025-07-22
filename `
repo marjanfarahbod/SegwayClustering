@@ -1,0 +1,44 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch master
+# Changes to be committed:
+#	new file:   clustering_segwayMayRuns.py
+#	new file:   file_storage_adjustments.py
+#	new file:   transcript_plot_01.py
+#
+# Changes not staged for commit:
+#	modified:   #105Runs_clusteringSegwayLabels.py#
+#	deleted:    #QC_transcriptionComparison_main.py#
+#	modified:   .#105Runs_clusteringSegwayLabels.py
+#	deleted:    .#QC_transcriptionComparison_02.py
+#	modified:   105Runs_clusteringSegwayLabels.py
+#	modified:   Enhancer_distribution.py
+#	modified:   Enhancer_regions.py
+#	modified:   GMTK_parameter_plot.py
+#	modified:   QC_transcriptionComparison_main.py
+#	modified:   __pycache__/QC_transcriptionComparison_util.cpython-38.pyc
+#	modified:   __pycache__/util.cpython-38.pyc
+#	modified:   get_the_runID_accession_matching_from_portal.py
+#	modified:   interpretation (modified content, untracked content)
+#	modified:   new_apply_01.py
+#	modified:   plot_pdf.py
+#	modified:   prob_filter.py
+#
+# Untracked files:
+#	.#classifier_train.py
+#	.#length_dist.py
+#	.#new_apply_01.py
+#	.#prob_filter.py
+#	.gitignore
+#	Viterbi_pseudo.txt
+#	_Python_
+#	allInterpretation/
+#	browser_mod.py
+#	chr19_en.bed
+#	get_data.py
+#	segwayRuns_server/.#genomedata_run.sh
+#	segwayRuns_server/genomedata_run.sh
+#	segwayRuns_server/h38.chrom.sizes.txt
+#

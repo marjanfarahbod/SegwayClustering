@@ -102,20 +102,26 @@ all_ref_bio_labels = set.union(*map(set, map(lambda x: x.values(), label_mapping
 label_mapping = runFolder + 'run02/label_mappings_trainSelect.csv'
 N = 295 # the old sample biolables
 label_mappings = {}
+new_label_archive = {}
 #orig_labels_set = set()
 with open(label_mapping, "r") as f:
     for i in range(N):
         line = next(f).strip().split(',')
+        print(line)
+        #line = next(f).strip().split('\t')
         if line[0] == "concatenation_key":
             continue
         concatenation_key = line[0]
         orig_label = line[1]
         label = line[2]
+        new_label = line[-1]
         if not concatenation_key in label_mappings:
             label_mappings[concatenation_key] = {}
+            new_label_archive[concatenation_key] = {}
+            
         label_mappings[concatenation_key][orig_label] = label
+        new_label_archive[concatenation_key][orig_label] = new_label
         #orig_labels_set.add(orig_label)
-
 
 all_ref_bio_labels = set.union(*map(set, map(lambda x: x.values(), label_mappings.values())))
 
@@ -179,6 +185,7 @@ example_bio_labels = numpy.array(example_bio_labels) # classifier label
 model_labels = example_bio_labels
 model_features = example_features
 
+sampleNames = classifier_data_frame['concatenation_key'] # this for keep track of train samples
 
 ## 1.2 Getting the classifier old data (from saved updated file)
 ##################################################
@@ -205,6 +212,9 @@ for i,label in enumerate(model_labels):
 for i, label in enumerate(model_labels):
     if label == 'Unclassified':
         print(label)
+        print(i)
+
+del sampleNames[1] # only unclassified was index 1
 
 # deleting the label 'Unclassified'
 model_labels_del = np.delete(model_labels, 1)
@@ -337,6 +347,7 @@ plt.savefig(pltFile)
 label_mapping = runFolder + 'run02/label_mappings_trainSelect.csv' # lines = f.readlines()[296:360]
 label_mapping = runFolder + 'run03/label_mappings_Jan31_2023.csv'  # lines = f.readlines()[296:383]
 IDlist_labels = {}
+extendedSampleNames = []
 with open(label_mapping, "r") as f:
     lines = f.readlines()[296:385]
     for line in lines:
@@ -347,6 +358,7 @@ with open(label_mapping, "r") as f:
             clusterID = elements[0].split('_')[1] + '___' + elements[1]
             label = elements[2]
             IDlist_labels[clusterID] = label
+            extendedSampleNames.append(elements[0])
     
 
 # extend the classifier
@@ -364,6 +376,44 @@ for item in IDlist_labels.keys():
     
 model_labels_extended_array = numpy.array(model_labels_extended)
 
+train = {'features': model_features_extended, 'labels':model_labels_extended}
+
+training_data_file = runFolder + "run03/training_data.pkl"
+with gzip.open(training_data_file, "wb") as f:
+    pickle.dump(train, f)
+
+supp_table05 = dataFolder + 'training_data.tsv'
+
+with open(supp_table05, 'w') as f:
+    lineString = ''
+    for i in range(15):
+        lineString = lineString + feature_names[i] + '\t'
+
+    
+    lineString = lineString + feature_names[15] + '\tlabel' + '\n'
+    f.write(lineString)
+    
+    for i in range(300):
+        lineString = ''
+        for j in range(15):
+            lineString = lineString + str(model_features_extended[i,j]) + '\t'
+
+        lineString = lineString + str(model_features_extended[i, 15]) + '\t' + model_labels_extended[i] + '\n'
+        f.write(lineString)
+
+# 4.0.1 saving the training sampleID and training labels 
+########################################
+# TODO: save in one file 
+sampleNames_list = list(sampleNames)
+extendedSampleNames
+allSampleNames = sampleNames_list + extendedSampleNames
+model_labels_extended
+
+
+
+# TODO: make a plot or something about count of the labels etc - and table of label by samples 
+
+    
 # 4.1 leave one out cross validation
 ########################################
 
@@ -461,7 +511,6 @@ probs = model.predict_proba(allFeatureAgg_mat)
 agg_cluster_list # cluster id
 
 # 5.1 The clustering heatmap plot
-
 ########################################
 
 

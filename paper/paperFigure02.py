@@ -125,7 +125,9 @@ for accession in accessionList:
     if((annotation['RNAseqFile'] != 'none')):
         rnaAccessionList.append(accession)
 
-allBarValues = np.zeros((94, 3, 11, 160)) # a, accession; s, segwayStates; m, expMat; b, bars
+allBarValues = np.zeros((94, 3, 11, 160)) # a, accession; s, segwayStates; m, expMat; b, bars: log(obs/expected) [note:fractions]
+allObsMats = np.zeros((94, 3, 11, 160)) # a, accession; s, segwayStates; m, expMat; b, bars: obs [note:fractions]
+geneCountBars = np.zeros((94, 3, 11, 160)) # a, accession; s, segwayStates; m, expMat; b, bars: obs [just the count]
 barPresence =  np.zeros((94, 11)) # some samples don't have the some labels
 for a, accession in enumerate(rnaAccessionList):
     print(a)
@@ -178,15 +180,36 @@ for a, accession in enumerate(rnaAccessionList):
     for m in range(3):
 
         thisMat = expMats[m]
-
-        # make it the ratio
+        
+        geneCountBars[a, m, :, :] = np.copy(thisMat)
+        
+        # make it the fraction
         thisMat = thisMat / np.sum(thisMat, axis=0)[np.newaxis,:]
+        # just saving the observed here (thisMat so far is the observed)
+        observedMat = np.copy(thisMat)
+        allObsMats[a, m, :, :] = observedMat
+        
         # versus expected
         thisMat = thisMat / fractions[:, None]
         logMat = np.log10(thisMat, out=np.zeros_like(thisMat), where=(thisMat!=0))
         allBarValues[a, m, :, :] = logMat
 
+freqRatios = np.zeros((94, 11, 160))
+# for the allObsMat, get the high to low ratio
+for a in range(len(rnaAccessionList)):
+    for s in range(11):
+        if(barPresence[a,s] == 1):
+            freqRatios[a , s, :] = np.divide(allObsMats[a, 2, s, : ], allObsMats[a, 0, s, :])
 
+meanFRQ = np.zeros((11, 160)) # m, expMat; s, segwayState; b, bars, this is the mean for the fractions
+
+for s in range(11): # for each label
+    thisBarPresence = barPresence[:, s]
+    for b in range(160): # for each bar
+        barValues = freqRatios[:, s, b]
+        values = barValues[thisBarPresence ==1]
+        meanFRQ[s,b] = np.mean(values)
+        
 # now for each bar, we get the values that are present, and then we get the median, 75 and 25 percentile.
 # allBarValues[a, m, s, b]
 # barPresence[a, s]
@@ -195,6 +218,7 @@ medianBars = np.zeros((3, 11, 160)) # m, expMat; s, segwayState; b, bars
 firstQBars = np.zeros((3, 11, 160)) # m, expMat; s, segwayState; b, bars
 thirdQBars = np.zeros((3, 11, 160)) # m, expMat; s, segwayState; b, bars
 meanBars = np.zeros((3, 11, 160)) # m, expMat; s, segwayState; b, bars
+meanFRQ = np.zeros((1, 11, 160)) # m, expMat; s, segwayState; b, bars, this is the mean for the fractions
 
 for m in range(3): # for each matrix
     for s in range(11): # for each label
@@ -206,8 +230,6 @@ for m in range(3): # for each matrix
             firstQBars[m, s, b] = np.quantile(values, .25)
             thirdQBars[m, s, b] = np.quantile(values, .75)
             meanBars[m,s,b] = np.mean(values)
-
-
         
 # the first figure is the transcriptomic figure
 # now the plot, first the median bars
@@ -317,6 +339,51 @@ figFile = plotFolder + figureFolder + 'transcriptomicPlot_mean.pdf'
 plt.savefig(figFile)
 plt.close('all')
 
+
+# the plot for the fraction fraction: meanFRQ
+# >>>>>>>>>>>>>>>>>>>>
+fig, axs = plt.subplots(segwayStateCount, 1, figsize=(4,8))
+
+xticks = [30, 130]
+xticksLabels = ['TSS', 'TTS']
+
+indexList = np.array(list(range(160)))
+
+thisMeanBars = np.log(meanFRQ)
+for s in range(segwayStateCount):
+    positiveInds = indexList[thisMeanBars[s,:] >= 0]
+    negativeInds = indexList[thisMeanBars[s,:] < 0]
+    posBar = np.copy(thisMeanBars[s, :])
+    posBar[negativeInds]=0
+    axs[s].bar(range(160), posBar, color=[249/256, 80/256, 97/256,1], width=1)
+    negBar = np.copy(thisMeanBars[s, :])
+    negBar[positiveInds]=0
+    axs[s].bar(range(160), negBar, color=[50/256,164/256,249/256,1], width=1)
+    axs[s].set_ylim((-3,5))
+    ylabel = segwayStates[s]
+    #axs[i,0].text(60, .55, ylabel, fontsize=8)
+    axs[s].set_xticks(xticks)
+    axs[s].set_yticks([-2, 4])
+    axs[s].set_ylabel(ylabel, rotation=0, fontsize=8, labelpad=3, ha='right', va='center')
+    if s < 10:
+        axs[s].tick_params(axis='x', labelbottom=False)
+
+#plt.show()
+axs[segwayStateCount-1].set_xticklabels(xticksLabels)
+axs[segwayStateCount-1].set_xlabel('Position relative to gene')
+#plt.figure(constrained_layout=True)
+plt.tight_layout()
+plt.show()
+
+
+axs[0,0].set_title('Enrichment of labels at genes with \nzero expression (log10(observed/expected))', fontsize = 9)
+axs[0,1].set_title('Enrichment of labels at genes with \nbottom 30% expression (log10(observed/expected))', fontsize = 9)
+axs[0,2].set_title('Enrichment of labels at genes with \ntop 70% expression (log10(observed/expected))', fontsize = 9)
+
+#figFile = plotFolder + figureFolder + 'transcriptomicPlot_median_QartileLines.pdf'
+figFile = plotFolder + figureFolder + 'transcriptomicPlot_mean_freqThing.pdf'
+plt.savefig(figFile)
+plt.close('all')
 
 ########################################
 # rerunning that thing because I messed up

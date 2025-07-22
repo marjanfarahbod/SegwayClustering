@@ -373,7 +373,7 @@ annotationResults = result
 myCurve = aucOutput[('segway', 2000)]
 plt.plot()
 
-
+# loading the enhancer results
 file = dataFolder + 'enhancer_geneExp_output.pkl'
 with open(file, 'rb') as f:
     annotationResults = pickle.load(f)
@@ -388,13 +388,96 @@ chromAUCs = result['chromAUCs']
 print(np.median(chromAUCs, axis=0))
 print(np.max(chromAUCs, axis=0))
 
+
+# loading the enhancer and enhancer low results
+file = dataFolder + 'enhancerLowAndEnhancer_geneExp_output.pkl'
+with open(file, 'rb') as f:
+    annotationResults_low = pickle.load(f)
+
+segAUCs_low = annotationResults_low['segwayAUCs']
+print(np.median(segAUCs, axis=0))
+print(np.max(segAUCs, axis=0))
+
+chromAUCs_low = annotationResults_low['chromAUCs']
+print(np.median(chromAUCs, axis=0))
+print(np.max(chromAUCs, axis=0))
+
+plt.boxplot(segAUCs_low)
+plt.ylim([.45, .85])
+plt.title('segway enhancerLow expression prediction - 2k, 5k, 10k')
+plt.show()
+plt.close('all')
+
+plt.boxplot(chromAUCs_low)
+plt.ylim([.45, .85])
+plt.title('chrom enhancerLow expression prediction - 2k, 5k, 10k')
+plt.show()
+plt.close('all')
+
+# getting all the pairwise pvalues:
+
+from scipy.stats import ttest_ind
+from itertools import combinations
+
+data = np.hstack((segAUCs, segAUCs_low, chromAUCs, chromAUCs_low))
+
+column_indices = range(data.shape[1])
+pairs = list(combinations(column_indices, 2))
+
+pvalues = {}
+for i, j in pairs:
+    stat, p = ttest_ind(data[:, i], data[:, j], equal_var=False)
+    pvalues[(i,j)] = p
+
+n_cols = data.shape[1]
+
+# Compute pairwise Welch’s t-tests
+p_matrix = np.full((n_cols, n_cols), np.nan)
+for i, j in combinations(range(n_cols), 2):
+    _, p = ttest_ind(data[:, i], data[:, j], equal_var=False)
+    p_matrix[i, j] = p
+    p_matrix[j, i] = p  # symmetry
+
+groups = ['seg', 'seg_low', 'chr', 'chr_low']
+subgroups = [2, 5, 10]
+# Create column labels 
+labels = [f'{grp}{i}' for grp in groups for i in subgroups]
+
+# Plot heatmap
+plt.figure(figsize=(12, 10))
+ax = sns.heatmap(p_matrix, 
+                 annot=True, fmt=".2e", cmap="viridis", 
+                 xticklabels=labels, yticklabels=labels,
+                 cbar_kws={'label': 'p-value'},
+                 linewidths=0.5, linecolor='gray')
+
+# Set titles and layout
+ax.set_title("Pairwise Welch's t-test p-values", fontsize=14)
+plt.xticks(rotation=45, ha='right')
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+figFile = plotFolder + 'seg_chromEnhExp_pvalues.pdf'
+print(figFile)
+plt.tight_layout()
+plt.savefig(figFile, bbox_inches='tight')
+plt.close('all')
+
 ########################################
 # 2. For the set of example samples, get the bigwig file
 ########################################
 
 # 2.1 get the accession name for the files
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-indexList = [1, 13, 52, 86, 94, 119, 123, 129, 132, 139, 233, 112, 67, 56 ,11, 9, 5]
+for i in indexList:
+    print(accessionList[i])
+
+
+#indexList = [1, 13, 52, 86, 94, 119, 123, 129, 132, 139, 233, 112, 67, 56 ,11, 9, 5]
+#indexList = [2, 3, 4, 8, 11, 15, 16]
+indexList = [1, 13, 52, 86, 94, 119, 123, 129, 132, 139, 233, 112, 67, 56 ,11, 9, 5, 2, 3, 4, 8, 11, 15, 16, 32, 64, 70, 119, 148, 153]
+indexList = [1, 13, 52, 86, 94, 119, 123, 129, 132, 139, 233, 112, 67, 56 ,11, 9, 5, 2, 3, 4, 8, 11, 15, 16,  32, 64, 70, 119, 148, 153, 56, 94, 12, 127, 135, 144, 158, 163, 172, 176, 181, 182, 194, 196, 201, 210]
 for accessionIndex in indexList:
     accession = accessionList[accessionIndex]
     annotation = allMeta[accession]
@@ -410,14 +493,20 @@ for accessionIndex in indexList:
             term = line.strip().split()[1]
             label_term_mapping[label] = term
 
-    # get the track file
+    # get the track file - H3K4me1
     assay_file = annotationFolder + 'trackname_assay.txt'
     with open(assay_file, 'r') as assays:
+        print('------')
         for line in assays:
             if line.split()[1] == 'H3K4me1':
                 print(line)
                 h3k4 = line.split()[0]
                 print(accession)
+            if line.split()[1] == 'H3K27ac':
+                print(line)
+                h3k27 = line.split()[0]
+                print(accession)
+
 
 # 2.2 run the function for each of the files
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -760,8 +849,8 @@ plt.close('all')
 # 3.1.0 Segway: get the chr20 section of the .bed file
 # did this for both chr19 and chr20
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# for the list of samples, get the chr20.bed file
-for accessionIndex in indexList:
+# for the list of samples, get the chr19.bed file
+for accessionIndex in indexList[24:]:
     accession = accessionList[accessionIndex]
     annotation = allMeta[accession]
     annotationFolder = annotation['folder']
@@ -782,10 +871,34 @@ for accessionIndex in indexList:
     subprocess.run(command, shell=True, stdout=f)
 
     os.system('gzip %s' %(annFile))
+ 
+# for the list of samples, get the chr20.bed and 17 file
+for accessionIndex in indexList:
+    accession = accessionList[accessionIndex]
+    annotation = allMeta[accession]
+    annotationFolder = annotation['folder']
 
-# 3.1.1 Chrom: get the chr20 section of the .bed file
+    annFile = annotation['bedFile']
+
+    if annFile.endswith('.gz'):
+        os.system('gunzip %s' %(annFile))
+    else:
+        os.system('gunzip %s.gz' %(annFile))
+
+    command = "grep -E 'chr18.*' %s" %(annFile)
+    print(command)
+    
+    out = annotation['folder'] + 'chr18.bed'
+    f = open(out, 'w')
+    import subprocess
+    subprocess.run(command, shell=True, stdout=f)
+
+    os.system('gzip %s' %(annFile))
+
+
+# 3.1.1 Chrom: get the chr17 section of the .bed file
 # I did it for chr19 too
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  
 import subprocess
 for accessionIndex in indexList:
     accession = accessionList[accessionIndex]
@@ -803,15 +916,15 @@ for accessionIndex in indexList:
     if annFile.endswith('.gz'):
         os.system('gunzip %s' %(annFile))
 
-        command = "grep -E 'chr19.*' %s" %(annFile[0:-3])
+        command = "grep -E 'chr18.*' %s" %(annFile[0:-3])
         print(command)
     else:
         os.system('gunzip %s.gz' %(annFile))
 
-        command = "grep -E 'chr19.*' %s" %(annFile)
+        command = "grep -E 'chr18.*' %s" %(annFile)
         print(command)
 
-    out = annotation['folder'] + 'chr19_chrom.bed'
+    out = annotation['folder'] + 'chr18_chrom.bed'
     f = open(out, 'w')
 
     subprocess.run(command, shell=True, stdout=f)
@@ -869,22 +982,35 @@ for accessionIndex in indexList:
     assay_file = annotationFolder + 'trackname_assay.txt'
     with open(assay_file, 'r') as assays:
         for line in assays:
-            if line.split()[1] == 'H3K4me1':
+            #if line.split()[1] == 'H3K4me1':
+            if line.split()[1] == 'H3K27ac':
                 print(line)
-                h3k4 = line.split()[0]
+                #h3k4 = line.split()[0]
+                h3k27 = line.split()[0]
                 print(accession)
 
-    hfileList.append('/Users/marjanfarahbod/Downloads/%s.bigWig' %(h3k4))
+    #hfileList.append('/Users/marjanfarahbod/Downloads/%s.bigWig' %(h3k4))
+    #hfileList.append('%sbigwigs/%s.bigWig' %(dataFolder, h3k4))
+    hfileList.append('%sbigwigs/%s.bigWig' %(dataFolder, h3k27))
     #print(histoneFile)
 
 # 3.3.0 Segway, get the plot
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#endInd = 64000000 # chr20
+# note : lines with #OOO is where the chrom number should change in the code
+
+import os
+
+
+endInd = 64000000 # chr20 # 20 does not have many genes 
 endInd = 58000000 # chr19
+endInd = 83000000 # chr17
+endInd = 80000000 # chr18 
+
 enhCoverage = np.zeros((len(indexList), 5))
 enhLowCoverage = np.zeros((len(indexList), 5))
 genomeHistoneCove = np.zeros((len(indexList), 5))
 allActiveCoverage = np.zeros((len(indexList), 5))
+
 for a, accessionIndex in enumerate(indexList):
     accession = accessionList[accessionIndex]
     print(accession)
@@ -894,19 +1020,28 @@ for a, accessionIndex in enumerate(indexList):
     assay_file = annotationFolder + 'trackname_assay.txt'
     with open(assay_file, 'r') as assays:
         for line in assays:
-            if line.split()[1] == 'H3K4me1':
+            #if line.split()[1] == 'H3K4me1':
+            if line.split()[1] == 'H3K27ac':
                 print(line)
-                h3k4 = line.split()[0]
-                print(accession)
+                h3k27 = line.split()[0]
+                #h3k4 = line.split()[0]
+                #print(accession)
 
     #histoneFile = '/Users/marjanfarahbod/Downloads/%s.bigWig' %(h3k4)
     histoneFile = hfileList[a]
+    print(histoneFile)
     #randInd = random.randint(0, len(indexList))
     #histoneFile = hfileList[randInd]
-    print(histoneFile)
+    #print(histoneFile)
+
+    if not(os.path.exists(histoneFile)):
+        print(histoneFile)
+        print('file does not exisst')
+        print(a)
+        print(accessionIndex)
     
     bw = pyBigWig.open(histoneFile)
-    vals = bw.values('chr19', 0, endInd)
+    vals = bw.values('chr19', 0, endInd) #OOO
 
     vals=np.asarray(vals)
     print('vals In')
@@ -925,13 +1060,13 @@ for a, accessionIndex in enumerate(indexList):
             term = line.strip().split()[1]
             label_term_mapping[label] = term
             
-    chr19File = annotation['folder'] + 'chr19.bed'
+    chr19File = annotation['folder'] + 'chr19.bed' #OOO
     segStates = np.zeros(len(meanSig))
     i = 0
     annLineInd = 1
     sumStates = np.zeros(len(label_term_mapping))
     while i < len(segStates):
-        line = linecache.getline(chr19File, annLineInd)
+        line = linecache.getline(chr19File, annLineInd)  #OOO
         annStart = int(line.split('\t')[1])
         annEnd = int(line.split('\t')[2])
         annState = int(line.split('\t')[3].split('_')[0])
@@ -966,6 +1101,7 @@ for a, accessionIndex in enumerate(indexList):
     enhLowCoverage[a, :] = stateCoverage[:, 3]
     allActiveCoverage[a, :] = np.sum(stateCoverage[:, 0:7], axis=1)
 
+    # plots 
     for i in range(11):
         print(i)
         if i >0:
@@ -983,7 +1119,8 @@ for a, accessionIndex in enumerate(indexList):
         genomeHistoneCove[a, i] = val
     #plt.close('all')
 
-    figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_%s_chr19_v02.pdf' %(accession)
+    #figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_%s_chr19_v02.pdf' %(accession) #OOO
+    figFile = plotFolder + 'segwayLabelCoverage_H3K27ac_%s_chr19_v02.pdf' %(accession) #OOO
     print(figFile)
     plt.title(titleString)
     plt.tight_layout()
@@ -994,38 +1131,82 @@ segRes = {}
 segRes['enhCoverage'] = enhCoverage
 segRes['enhLowCoverage'] = enhLowCoverage
 segRes['allActiveCoverage'] = allActiveCoverage
-file = dataFolder + 'H3K4me1_enhCoverage_segway.pkl'
+#file = dataFolder + 'H3K4me1_enhCoverage_segway_extras_chr18.pkl'  #OOO
+file = dataFolder + 'H3K27ac_enhCoverage_segway_extras_chr19.pkl'  #OOO
 with open(file, 'wb') as f:
-    pickle.dump(chromRes, f)
+    pickle.dump(segRes, f)
+
+file = dataFolder + 'H3K4me1_enhCoverage_segway.pkl' 
+with open(file, 'rb') as f:
+    segRes=pickle.load(f)
+
+file = dataFolder + 'H3K4me1_enhCoverage_chrom.pkl'
+with open(file, 'rb') as f:
+    chromRes=pickle.load(f)
+
+file = dataFolder + 'H3K4me1_enhCoverage_segway_extras.pkl'
+with open(file, 'rb') as f:
+    segResX=pickle.load(f)
+
+file = dataFolder + 'H3K4me1_enhCoverage_chrom_extras.pkl'
+with open(file, 'rb') as f:
+    chromResX=pickle.load(f)
+
+
+# do the t-test and print the pvalues
+from scipy import stats
+#stats.ttest_ind(segwayGeneAUC, chromGeneAUC, equal_var=False)
+
+coverage = ['enhCoverage', 'enhLowCoverage', 'allActiveCoverage']
+ps = np.zeros((3, 5))
+for i,c in enumerate(coverage):
+    for j in range(5):
+        #ps[i, j] = stats.ttest_ind(chromRes[c][:,j], segRes[c][:,j], equal_var=False)[1]
+        chromArr = np.concatenate((chromRes[c][:,j], chromResX[c][:,j]))
+        segArr = np.concatenate((segRes[c][:,j], segResX[c][:,j]))
+
+        #chromArr = chromRes[c][:,j]
+        #segArr = segRes[c][:,j]
+        ps[i, j] = stats.ttest_ind(chromArr, segArr)[1]
+
+# save this to a file
+myFile = dataFolder + 'histoneFigure3C_Epvalues.tsv'
+np.savetxt(myFile, ps, delimiter='\t')
 
 
 plt.boxplot(genomeHistoneCove)
-figFile = plotFolder + 'segwayLabelCoverage_H3K4me1Foldchange_genomeCoverage_chr19.pdf' 
+#figFile = plotFolder + 'segwayLabelCoverage_H3K4me1Foldchange_genomeCoverage_chr19.pdf'
+figFile = plotFolder + 'segwayLabelCoverage_H3K27acFoldchange_genomeCoverage_chr19.pdf' #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
 
+enhCoverage = segRes['enhCoverage']
 plt.boxplot(enhCoverage)
 plt.ylim((-.1, 1.1))
-figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_chr19_17samples.pdf' 
+#figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_chr18.pdf' #OOO
+figFile = plotFolder + 'segwayLabelCoverage_H3K27ac_chr19.pdf' #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
 
+enhLowCoverage = segRes['enhLowCoverage']
 plt.boxplot(enhLowCoverage)
 plt.ylim((-.1, 1.1))
-figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_chr19_17samples_enhLow.pdf' 
+#figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_chr18_enhLow.pdf'
+figFile = plotFolder + 'segwayLabelCoverage_H3K27ac_chr19_enhLow.pdf' #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
 
-
+allActiveCoverage = segRes['allActiveCoverage']
 plt.boxplot(allActiveCoverage)
 plt.ylim((-.1, 1.1))
-figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_chr19_17samples_allActive.pdf' 
+#figFile = plotFolder + 'segwayLabelCoverage_H3K4me1_chr18allActive.pdf'
+figFile = plotFolder + 'segwayLabelCoverage_H3K27ac_chr19allActive.pdf' 
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
@@ -1036,6 +1217,7 @@ plt.close('all')
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # endInd = 64000000 # chr20
 endInd = 58000000 # chr19
+endInd = 80000000 # chr18
 enhCoverage = np.zeros((len(indexList), 5))
 enhLowCoverage = np.zeros((len(indexList), 5))
 genomeHistoneCove = np.zeros((len(indexList), 5))
@@ -1055,7 +1237,7 @@ for a, accessionIndex in enumerate(indexList):
     print(histoneFile)
     
     bw = pyBigWig.open(histoneFile)
-    vals = bw.values('chr19', 0, endInd)
+    vals = bw.values('chr19', 0, endInd) #OOO
 
     vals = np.asarray(vals)
     print('vals In')
@@ -1066,12 +1248,12 @@ for a, accessionIndex in enumerate(indexList):
 
     # get annotation file
     # >>>>>>>>>>
-    chr19FileChrom = annotation['folder'] + 'chr19_chrom.bed'
+    chr19FileChrom = annotation['folder'] + 'chr19_chrom.bed' #OOO
 
     i = 0
     annLineInd = 1
     chromStates = np.zeros(int(endInd/100)) + 18
-    line = linecache.getline(chr19FileChrom, annLineInd)
+    line = linecache.getline(chr19FileChrom, annLineInd) #OOO
     annStart = int(line.split('\t')[1])
     annEnd = int(line.split('\t')[2])
     annState = chromLabels.index((line.split('\t')[3]))
@@ -1081,7 +1263,7 @@ for a, accessionIndex in enumerate(indexList):
         ei = int(annEnd/100)+1
         chromStates[si:ei] = annState
         annLineInd +=1
-        line = linecache.getline(chr19FileChrom, annLineInd)
+        line = linecache.getline(chr19FileChrom, annLineInd) #OOO
         annStart = int(line.split('\t')[1])
         annEnd = int(line.split('\t')[2])
         annState = chromLabels.index((line.split('\t')[3]))
@@ -1159,7 +1341,8 @@ for a, accessionIndex in enumerate(indexList):
         titleString = titleString + '   %.3f' %(val)
         genomeHistoneCove[a, i] = val
 
-    figFile = plotFolder + 'ChromLabelCoverage_H3K4me1_%s_chr19_corrected.pdf' %(accession)
+    #figFile = plotFolder + 'ChromLabelCoverage_H3K4me1_%s_chr18_corrected.pdf' %(accession) #OOO
+    figFile = plotFolder + 'ChromLabelCoverage_H3K27ac_%s_chr19_corrected.pdf' %(accession) #OOO
     print(figFile)
     plt.tight_layout()
     plt.title(titleString)
@@ -1171,13 +1354,15 @@ chromRes = {}
 chromRes['enhCoverage'] = enhCoverage
 chromRes['enhLowCoverage'] = enhLowCoverage
 chromRes['allActiveCoverage'] = allActiveCoverage
-file = dataFolder + 'H3K4me1_enhCoverage_chrom.pkl'
+#file = dataFolder + 'H3K4me1_enhCoverage_chrom_extras_chr18.pkl' #OOO
+file = dataFolder + 'H3K27ac_enhCoverage_chrom_extras_chr19.pkl' #OOO
 with open(file, 'wb') as f:
     pickle.dump(chromRes, f)
 
     
 plt.boxplot(genomeHistoneCove)
-figFile = plotFolder + 'chromLabelCoverage_H3K4me1Foldchange_genomeCoverage_chr19.pdf' 
+#figFile = plotFolder + 'chromLabelCoverage_H3K4me1Foldchange_genomeCoverage_chr18.pdf' #OOO
+figFile = plotFolder + 'chromLabelCoverage_H3K27acFoldchange_genomeCoverage_chr19.pdf' #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
@@ -1185,7 +1370,8 @@ plt.close('all')
 
 plt.boxplot(enhCoverage)
 plt.ylim((-.1, 1.1))
-figFile = plotFolder + 'chromLabelCoverage_H3K4me1_chr19_17samples.pdf' 
+#figFile = plotFolder + 'chromLabelCoverage_H3K4me1_chr18.pdf' #OOO
+figFile = plotFolder + 'chromLabelCoverage_H3K27ac_chr19.pdf' #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
@@ -1193,7 +1379,8 @@ plt.close('all')
 
 plt.boxplot(enhLowCoverage)
 plt.ylim((-.1, 1.1))
-figFile = plotFolder + 'chromLabelCoverage_H3K4me1_chr19_17samples_enhLow.pdf' 
+#figFile = plotFolder + 'chromLabelCoverage_H3K4me1_chr18enhLow.pdf'  #OOO
+figFile = plotFolder + 'chromLabelCoverage_H3K27ac_chr19enhLow.pdf'  #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
@@ -1202,12 +1389,12 @@ plt.close('all')
 
 plt.boxplot(allActiveCoverage)
 plt.ylim((-.1, 1.1))
-figFile = plotFolder + 'chromLabelCoverage_H3K4me1_chr19_17samples_allActive.pdf' 
+#figFile = plotFolder + 'chromLabelCoverage_H3K4me1_chr18_allActive.pdf' #OOO
+figFile = plotFolder + 'chromLabelCoverage_H3K27ac_chr19_allActive.pdf' #OOO
 print(figFile)
 plt.tight_layout()
 plt.savefig(figFile, bbox_inches='tight')
 plt.close('all')
-
 
 
 ########################################
