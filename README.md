@@ -8,6 +8,7 @@ list of annotations: https://www.encodeproject.org/carts/segway-chromatin-states
 For full pipeline details, see the PDF:  
 [ENCODE_code_documentation_Summ.pdf](./ENCODE_code_documentation_Summ.pdf)
 
+[![DOI](https://zenodo.org/badge/438035519.svg)](https://doi.org/10.5281/zenodo.16335818)
 
 
 ### The GTF file used for gene coordinates
