@@ -2,9 +2,9 @@
 
 ## Overview
 
-This project contains a collection of Python scripts designed to analyze and compare **transcriptomics data** with chromatin segmentation results from **Segway** and **ChromHMM**.
+This project contains Python scripts comparing ChromHMM and Segway annotations based on transcriptomics data.
 
-All data are downloaded from ENCODE portal. Local addresses for  Segway annotation, ChromHMM annotation and Transcriptomic data for each sample are included in annMeta, in metaInfo.pkl. 
+All data are downloaded from ENCODE portal. In the code, local addresses for  Segway annotation, ChromHMM annotation and Transcriptomic data for each sample are included in annMeta, in metaInfo.pkl. 
 
 The primary goal is to assess the relationship between chromatin states (for both Segway and ChromHMM) and gene expression levels (transcriptomic data). 
 
