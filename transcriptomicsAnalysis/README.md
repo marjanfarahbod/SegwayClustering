@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project contains Python scripts comparing ChromHMM and Segway annotations based on transcriptomics data.
+This directory contains Python scripts comparing ChromHMM and Segway annotations based on transcriptomics data.
 
 All data are downloaded from ENCODE portal. In the code, local addresses for  Segway annotation, ChromHMM annotation and Transcriptomic data for each sample are included in annMeta, in metaInfo.pkl. 
 
