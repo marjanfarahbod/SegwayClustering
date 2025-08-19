@@ -2,7 +2,7 @@
 
 This directory contains scripts to automate the process of running **Segway** and **Segtools** for genome annotation. The workflow is designed to be executed on a high-performance computing (HPC) cluster using the **SLURM** job scheduler. The scripts are written in Python and Bash.
 
-For more details on Segway itself, refer to the official documentation:  
+For more details on Segway train and run, refer to the official documentation:  
 [Segway Documentation](https://www.pmgenomics.ca/hoffmanlab/proj/segway/doc/0.2.1/)
 
 ## Workflow
